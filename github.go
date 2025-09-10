@@ -156,3 +156,30 @@ func (c *GitHubClient) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApp
 		Approvers: approvals,
 	}, nil
 }
+
+// GitHubClientAdapter adapts GitHubClient to implement ReviewClient interface
+type GitHubClientAdapter struct {
+	client *GitHubClient
+}
+
+// NewGitHubClientAdapter creates a new adapter for GitHubClient
+func NewGitHubClientAdapter(token string) ReviewClient {
+	return &GitHubClientAdapter{
+		client: NewGitHubClient(token),
+	}
+}
+
+// FindPRByCommit implements ReviewClient interface
+func (a *GitHubClientAdapter) FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error) {
+	return a.client.FindPRByCommit(owner, repo, commitHash)
+}
+
+// GetPRApprovals implements ReviewClient interface  
+func (a *GitHubClientAdapter) GetPRApprovals(owner, repo string, prNumber int) ([]Review, error) {
+	return a.client.GetPRApprovals(owner, repo, prNumber)
+}
+
+// GetPRApprovalInfo implements ReviewClient interface
+func (a *GitHubClientAdapter) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error) {
+	return a.client.GetPRApprovalInfo(owner, repo, commitHash)
+}
