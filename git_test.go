@@ -304,6 +304,201 @@ func TestExecuteGitBlameIntegration(t *testing.T) {
 	}
 }
 
+func TestParseRepositoryURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		url          string
+		expectOwner  string
+		expectRepo   string
+		expectType   RepositoryType
+		expectHost   string
+		expectError  bool
+	}{
+		// GitHub tests
+		{
+			name:        "GitHub SSH format",
+			url:         "git@github.com:owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitHub,
+			expectHost:  "github.com",
+			expectError: false,
+		},
+		{
+			name:        "GitHub HTTPS format",
+			url:         "https://github.com/owner/repo.git",
+			expectOwner: "owner", 
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitHub,
+			expectHost:  "github.com",
+			expectError: false,
+		},
+		{
+			name:        "GitHub HTTP format",
+			url:         "http://github.com/owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo", 
+			expectType:  RepositoryTypeGitHub,
+			expectHost:  "github.com",
+			expectError: false,
+		},
+		{
+			name:        "GitHub SSH without .git",
+			url:         "git@github.com:owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitHub,
+			expectHost:  "github.com",
+			expectError: false,
+		},
+		{
+			name:        "GitHub HTTPS without .git",
+			url:         "https://github.com/owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitHub,
+			expectHost:  "github.com",
+			expectError: false,
+		},
+		{
+			name:        "GitHub with subpath (should take first two)",
+			url:         "https://github.com/owner/repo/tree/main",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitHub,
+			expectHost:  "github.com",
+			expectError: false,
+		},
+		
+		// GitLab.com tests
+		{
+			name:        "GitLab SSH format",
+			url:         "git@gitlab.com:owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "GitLab HTTPS format", 
+			url:         "https://gitlab.com/owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "GitLab HTTP format",
+			url:         "http://gitlab.com/owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "GitLab SSH without .git",
+			url:         "git@gitlab.com:owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "GitLab with subpath",
+			url:         "https://gitlab.com/owner/repo/-/tree/main",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.com",
+			expectError: false,
+		},
+		
+		// Self-hosted GitLab tests
+		{
+			name:        "Self-hosted GitLab SSH",
+			url:         "git@gitlab.example.com:owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo", 
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.example.com",
+			expectError: false,
+		},
+		{
+			name:        "Self-hosted GitLab HTTPS",
+			url:         "https://gitlab.example.com/owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.example.com",
+			expectError: false,
+		},
+		{
+			name:        "Self-hosted GitLab HTTP",
+			url:         "http://gitlab.internal.corp/owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectType:  RepositoryTypeGitLab,
+			expectHost:  "gitlab.internal.corp",
+			expectError: false,
+		},
+		
+		// Error cases
+		{
+			name:        "invalid path format",
+			url:         "git@github.com:justowner",
+			expectError: true,
+		},
+		{
+			name:        "empty URL",
+			url:         "",
+			expectError: true,
+		},
+		{
+			name:        "unsupported format",
+			url:         "ftp://example.com/owner/repo",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseRepositoryURL(tt.url)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if result.Owner != tt.expectOwner {
+				t.Errorf("expected owner %s, got %s", tt.expectOwner, result.Owner)
+			}
+
+			if result.Name != tt.expectRepo {
+				t.Errorf("expected repo %s, got %s", tt.expectRepo, result.Name)
+			}
+			
+			if result.Type != tt.expectType {
+				t.Errorf("expected type %s, got %s", tt.expectType, result.Type)
+			}
+			
+			if result.Host != tt.expectHost {
+				t.Errorf("expected host %s, got %s", tt.expectHost, result.Host)
+			}
+		})
+	}
+}
+
 func TestParseGitHubURL(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -313,60 +508,27 @@ func TestParseGitHubURL(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "SSH format",
+			name:        "GitHub SSH format",
 			url:         "git@github.com:owner/repo.git",
 			expectOwner: "owner",
 			expectRepo:  "repo",
 			expectError: false,
 		},
 		{
-			name:        "HTTPS format",
+			name:        "GitHub HTTPS format",
 			url:         "https://github.com/owner/repo.git",
 			expectOwner: "owner", 
 			expectRepo:  "repo",
 			expectError: false,
 		},
 		{
-			name:        "HTTP format",
-			url:         "http://github.com/owner/repo.git",
-			expectOwner: "owner",
-			expectRepo:  "repo", 
-			expectError: false,
-		},
-		{
-			name:        "SSH without .git",
-			url:         "git@github.com:owner/repo",
-			expectOwner: "owner",
-			expectRepo:  "repo",
-			expectError: false,
-		},
-		{
-			name:        "HTTPS without .git",
-			url:         "https://github.com/owner/repo",
-			expectOwner: "owner",
-			expectRepo:  "repo",
-			expectError: false,
-		},
-		{
-			name:        "with subpath (should take first two)",
-			url:         "https://github.com/owner/repo/tree/main",
-			expectOwner: "owner",
-			expectRepo:  "repo",
-			expectError: false,
-		},
-		{
-			name:        "unsupported format",
+			name:        "GitLab URL should error",
 			url:         "https://gitlab.com/owner/repo.git",
 			expectError: true,
 		},
 		{
 			name:        "invalid path format",
 			url:         "git@github.com:justowner",
-			expectError: true,
-		},
-		{
-			name:        "empty URL",
-			url:         "",
 			expectError: true,
 		},
 	}
