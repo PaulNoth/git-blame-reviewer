@@ -31,22 +31,19 @@ func main() {
 
 	filePath := args[0]
 
-	// Get GitHub token from environment
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		fmt.Fprintf(os.Stderr, "fatal: GITHUB_TOKEN environment variable is required\n")
-		os.Exit(1)
-	}
+	// Get tokens from environment
+	githubToken := os.Getenv("GITHUB_TOKEN")
+	gitlabToken := os.Getenv("GITLAB_TOKEN")
 
 	// Run the main logic
-	if err := runGitReviewBlame(filePath, *lineNumber, *porcelain, *showEmail, token); err != nil {
+	if err := runGitReviewBlame(filePath, *lineNumber, *porcelain, *showEmail, githubToken, gitlabToken); err != nil {
 		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func showHelp() {
-	fmt.Printf(`git-review-blame - Show GitHub PR approvers for each line instead of commit authors
+	fmt.Printf(`git-review-blame - Show GitHub/GitLab PR/MR approvers for each line instead of commit authors
 
 Usage:
   git-review-blame [<options>] [<rev-opts>] [<rev>] [--] <file>
@@ -58,17 +55,21 @@ Options:
   -help               Show this help message
 
 Environment Variables:
-  GITHUB_TOKEN - GitHub personal access token (required)
+  GITHUB_TOKEN - GitHub personal access token (required for GitHub repositories)
+  GITLAB_TOKEN - GitLab personal access token (required for GitLab repositories)
 
 Examples:
   git-review-blame src/main.go
   git-review-blame -L 10,20 src/main.go  
   git-review-blame -porcelain src/main.go
+
+Note: The tool automatically detects if the repository is GitHub or GitLab based on the
+remote origin URL and uses the appropriate token.
 `)
 }
 
 // runGitReviewBlame executes the main logic of the application
-func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, token string) error {
+func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, githubToken, gitlabToken string) error {
 	// 1. Find git repository root
 	repoRoot, err := FindGitRoot(filePath)
 	if err != nil {
@@ -87,8 +88,12 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, to
 		return fmt.Errorf("git blame failed: %w", err)
 	}
 
-	// 4. Create GitHub client
-	client := NewGitHubClient(token)
+	// 4. Create appropriate client based on repository type
+	factory := NewClientFactory()
+	client, err := factory.CreateClient(repoInfo, githubToken, gitlabToken)
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
 
 	// 5. Process each blame line to get PR approval info
 	var linesWithApprovals []BlameLineWithApproval
