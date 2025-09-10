@@ -109,7 +109,7 @@ The tool automatically detects whether your repository is hosted on GitHub or Gi
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.25.1+
 - Make
 - golangci-lint (install with `make install-tools`)
 
