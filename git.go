@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -164,4 +165,69 @@ func isHexString(s string) bool {
 		}
 	}
 	return true
+}
+
+// RepoInfo contains repository owner and name information
+type RepoInfo struct {
+	Owner string
+	Name  string
+}
+
+// ExtractRepoInfo extracts owner and repository name from git remote
+func ExtractRepoInfo(repoRoot string) (*RepoInfo, error) {
+	// Get remote origin URL
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd.Dir = repoRoot
+	
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	
+	remoteURL := strings.TrimSpace(string(output))
+	
+	return parseGitHubURL(remoteURL)
+}
+
+// parseGitHubURL extracts owner and repo name from various GitHub URL formats
+func parseGitHubURL(url string) (*RepoInfo, error) {
+	url = strings.TrimSpace(url)
+	
+	// Handle SSH format: git@github.com:owner/repo.git
+	if strings.HasPrefix(url, "git@github.com:") {
+		path := strings.TrimPrefix(url, "git@github.com:")
+		return parseRepoPath(path)
+	}
+	
+	// Handle HTTPS format: https://github.com/owner/repo.git
+	if strings.HasPrefix(url, "https://github.com/") {
+		path := strings.TrimPrefix(url, "https://github.com/")
+		return parseRepoPath(path)
+	}
+	
+	// Handle HTTP format: http://github.com/owner/repo.git
+	if strings.HasPrefix(url, "http://github.com/") {
+		path := strings.TrimPrefix(url, "http://github.com/")
+		return parseRepoPath(path)
+	}
+	
+	return nil, fmt.Errorf("unsupported repository URL format: %s", url)
+}
+
+// parseRepoPath parses owner/repo from the path part of a GitHub URL
+func parseRepoPath(path string) (*RepoInfo, error) {
+	// Remove .git suffix if present
+	path = strings.TrimSuffix(path, ".git")
+	
+	// Split by slash
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid repository path: %s", path)
+	}
+	
+	// Take first two parts as owner/repo
+	return &RepoInfo{
+		Owner: parts[0],
+		Name:  parts[1],
+	}, nil
 }

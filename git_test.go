@@ -303,3 +303,165 @@ func TestExecuteGitBlameIntegration(t *testing.T) {
 		t.Errorf("commit hash should be hex string: %s", firstLine.CommitHash)
 	}
 }
+
+func TestParseGitHubURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		url         string
+		expectOwner string
+		expectRepo  string
+		expectError bool
+	}{
+		{
+			name:        "SSH format",
+			url:         "git@github.com:owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "HTTPS format",
+			url:         "https://github.com/owner/repo.git",
+			expectOwner: "owner", 
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "HTTP format",
+			url:         "http://github.com/owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo", 
+			expectError: false,
+		},
+		{
+			name:        "SSH without .git",
+			url:         "git@github.com:owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "HTTPS without .git",
+			url:         "https://github.com/owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "with subpath (should take first two)",
+			url:         "https://github.com/owner/repo/tree/main",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "unsupported format",
+			url:         "https://gitlab.com/owner/repo.git",
+			expectError: true,
+		},
+		{
+			name:        "invalid path format",
+			url:         "git@github.com:justowner",
+			expectError: true,
+		},
+		{
+			name:        "empty URL",
+			url:         "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseGitHubURL(tt.url)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if result.Owner != tt.expectOwner {
+				t.Errorf("expected owner %s, got %s", tt.expectOwner, result.Owner)
+			}
+
+			if result.Name != tt.expectRepo {
+				t.Errorf("expected repo %s, got %s", tt.expectRepo, result.Name)
+			}
+		})
+	}
+}
+
+func TestParseRepoPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		expectOwner string
+		expectRepo  string
+		expectError bool
+	}{
+		{
+			name:        "basic owner/repo",
+			path:        "owner/repo",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "with .git suffix",
+			path:        "owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "with additional path segments",
+			path:        "owner/repo/tree/main",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "missing repo name",
+			path:        "owner",
+			expectError: true,
+		},
+		{
+			name:        "empty path",
+			path:        "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseRepoPath(tt.path)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if result.Owner != tt.expectOwner {
+				t.Errorf("expected owner %s, got %s", tt.expectOwner, result.Owner)
+			}
+
+			if result.Name != tt.expectRepo {
+				t.Errorf("expected repo %s, got %s", tt.expectRepo, result.Name)
+			}
+		})
+	}
+}
