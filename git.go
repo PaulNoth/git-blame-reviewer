@@ -167,10 +167,31 @@ func isHexString(s string) bool {
 	return true
 }
 
-// RepoInfo contains repository owner and name information
+// RepositoryType represents the type of git hosting service
+type RepositoryType int
+
+const (
+	RepositoryTypeGitHub RepositoryType = iota
+	RepositoryTypeGitLab
+)
+
+func (rt RepositoryType) String() string {
+	switch rt {
+	case RepositoryTypeGitHub:
+		return "GitHub"
+	case RepositoryTypeGitLab:
+		return "GitLab"
+	default:
+		return "Unknown"
+	}
+}
+
+// RepoInfo contains repository owner, name, and type information
 type RepoInfo struct {
 	Owner string
 	Name  string
+	Type  RepositoryType
+	Host  string // For self-hosted GitLab instances
 }
 
 // ExtractRepoInfo extracts owner and repository name from git remote
@@ -186,32 +207,147 @@ func ExtractRepoInfo(repoRoot string) (*RepoInfo, error) {
 	
 	remoteURL := strings.TrimSpace(string(output))
 	
-	return parseGitHubURL(remoteURL)
+	return parseRepositoryURL(remoteURL)
 }
 
-// parseGitHubURL extracts owner and repo name from various GitHub URL formats
-func parseGitHubURL(url string) (*RepoInfo, error) {
+// parseRepositoryURL extracts owner, repo name, and type from GitHub/GitLab URLs
+func parseRepositoryURL(url string) (*RepoInfo, error) {
 	url = strings.TrimSpace(url)
 	
-	// Handle SSH format: git@github.com:owner/repo.git
+	// GitHub SSH format: git@github.com:owner/repo.git
 	if strings.HasPrefix(url, "git@github.com:") {
 		path := strings.TrimPrefix(url, "git@github.com:")
-		return parseRepoPath(path)
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitHub
+		repoInfo.Host = "github.com"
+		return repoInfo, nil
 	}
 	
-	// Handle HTTPS format: https://github.com/owner/repo.git
+	// GitHub HTTPS format: https://github.com/owner/repo.git
 	if strings.HasPrefix(url, "https://github.com/") {
 		path := strings.TrimPrefix(url, "https://github.com/")
-		return parseRepoPath(path)
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitHub
+		repoInfo.Host = "github.com"
+		return repoInfo, nil
 	}
 	
-	// Handle HTTP format: http://github.com/owner/repo.git
+	// GitHub HTTP format: http://github.com/owner/repo.git
 	if strings.HasPrefix(url, "http://github.com/") {
 		path := strings.TrimPrefix(url, "http://github.com/")
-		return parseRepoPath(path)
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitHub
+		repoInfo.Host = "github.com"
+		return repoInfo, nil
+	}
+	
+	// GitLab SSH format: git@gitlab.com:owner/repo.git
+	if strings.HasPrefix(url, "git@gitlab.com:") {
+		path := strings.TrimPrefix(url, "git@gitlab.com:")
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitLab
+		repoInfo.Host = "gitlab.com"
+		return repoInfo, nil
+	}
+	
+	// GitLab HTTPS format: https://gitlab.com/owner/repo.git
+	if strings.HasPrefix(url, "https://gitlab.com/") {
+		path := strings.TrimPrefix(url, "https://gitlab.com/")
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitLab
+		repoInfo.Host = "gitlab.com"
+		return repoInfo, nil
+	}
+	
+	// GitLab HTTP format: http://gitlab.com/owner/repo.git
+	if strings.HasPrefix(url, "http://gitlab.com/") {
+		path := strings.TrimPrefix(url, "http://gitlab.com/")
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitLab
+		repoInfo.Host = "gitlab.com"
+		return repoInfo, nil
+	}
+	
+	// Self-hosted GitLab SSH format: git@gitlab.example.com:owner/repo.git
+	if strings.Contains(url, "@") && strings.Contains(url, ":") && !strings.HasPrefix(url, "http") {
+		parts := strings.SplitN(url, "@", 2)
+		if len(parts) == 2 {
+			hostAndPath := parts[1]
+			hostPathParts := strings.SplitN(hostAndPath, ":", 2)
+			if len(hostPathParts) == 2 {
+				host := hostPathParts[0]
+				path := hostPathParts[1]
+				
+				repoInfo, err := parseRepoPath(path)
+				if err != nil {
+					return nil, err
+				}
+				repoInfo.Type = RepositoryTypeGitLab // Assume GitLab for self-hosted
+				repoInfo.Host = host
+				return repoInfo, nil
+			}
+		}
+	}
+	
+	// Self-hosted GitLab HTTPS format: https://gitlab.example.com/owner/repo.git
+	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
+		// Extract rest after protocol
+		var rest string
+		if strings.HasPrefix(url, "https://") {
+			rest = strings.TrimPrefix(url, "https://")
+		} else {
+			rest = strings.TrimPrefix(url, "http://")
+		}
+		
+		// Find first slash to separate host from path
+		slashIndex := strings.Index(rest, "/")
+		if slashIndex == -1 {
+			return nil, fmt.Errorf("invalid repository URL format: %s", url)
+		}
+		
+		host := rest[:slashIndex]
+		path := rest[slashIndex+1:]
+		
+		repoInfo, err := parseRepoPath(path)
+		if err != nil {
+			return nil, err
+		}
+		repoInfo.Type = RepositoryTypeGitLab // Assume GitLab for self-hosted
+		repoInfo.Host = host
+		return repoInfo, nil
 	}
 	
 	return nil, fmt.Errorf("unsupported repository URL format: %s", url)
+}
+
+// parseGitHubURL extracts owner and repo name from various GitHub URL formats (kept for backward compatibility)
+func parseGitHubURL(url string) (*RepoInfo, error) {
+	repoInfo, err := parseRepositoryURL(url)
+	if err != nil {
+		return nil, err
+	}
+	if repoInfo.Type != RepositoryTypeGitHub {
+		return nil, fmt.Errorf("not a GitHub repository: %s", url)
+	}
+	return repoInfo, nil
 }
 
 // parseRepoPath parses owner/repo from the path part of a GitHub URL
