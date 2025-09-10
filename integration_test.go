@@ -27,7 +27,7 @@ func TestMainIntegration(t *testing.T) {
 			name:           "help flag",
 			args:           []string{"-help"},
 			expectExitCode: 0,
-			expectOutput:   "git-review-blame - Show GitHub PR approvers",
+			expectOutput:   "git-review-blame - Show GitHub/GitLab PR/MR approvers",
 		},
 		{
 			name:           "no file specified",
@@ -36,16 +36,25 @@ func TestMainIntegration(t *testing.T) {
 			expectError:    "fatal: no file specified",
 		},
 		{
-			name:           "no GitHub token",
+			name:           "no tokens provided",
 			args:           []string{"main.go"},
 			expectExitCode: 1,
-			expectError:    "fatal: GITHUB_TOKEN environment variable is required",
+			expectError:    "fatal: failed to extract repository info",
 		},
 		{
-			name: "invalid git repository",
+			name: "GitHub repo with GitHub token", 
 			args: []string{"/tmp/nonexistent.go"},
 			env: map[string]string{
 				"GITHUB_TOKEN": "dummy-token",
+			},
+			expectExitCode: 1,
+			expectError:    "fatal: not in a git repository",
+		},
+		{
+			name: "GitLab repo with GitLab token",
+			args: []string{"/tmp/nonexistent.go"}, 
+			env: map[string]string{
+				"GITLAB_TOKEN": "dummy-token",
 			},
 			expectExitCode: 1,
 			expectError:    "fatal: not in a git repository",
@@ -107,8 +116,8 @@ func TestMainFlags(t *testing.T) {
 	}
 	defer os.Remove("test-git-review-blame")
 
-	// Test with valid git repository but dummy token (will fail at GitHub API stage)
-	cmd := exec.Command("./test-git-review-blame", "-porcelain", "-show-email", "main.go")
+	// Test with valid git repository but dummy token (will fail at API stage)
+	cmd := exec.Command("./test-git-review-blame", "-porcelain", "-show-email", "main.go") 
 	cmd.Env = append(os.Environ(), "GITHUB_TOKEN=dummy-token")
 	
 	output, err := cmd.CombinedOutput()
@@ -116,7 +125,7 @@ func TestMainFlags(t *testing.T) {
 
 	// Should fail but not due to flag parsing
 	if err == nil {
-		t.Error("Expected command to fail (no real GitHub token)")
+		t.Error("Expected command to fail (no real API token)")
 	}
 
 	// Should not contain flag parsing errors
