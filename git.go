@@ -79,8 +79,14 @@ func ExecuteGitBlame(repoRoot, filePath string, lineRange string, porcelain bool
 		args = append(args, "--line-porcelain")
 	}
 	
+	// Convert filePath to absolute path first to handle relative paths correctly
+	absFilePath, err := filepath.Abs(filePath)
+	if err != nil {
+		return nil, err
+	}
+	
 	// Add the file path (relative to repo root)
-	relPath, err := filepath.Rel(repoRoot, filePath)
+	relPath, err := filepath.Rel(repoRoot, absFilePath)
 	if err != nil {
 		return nil, err
 	}
