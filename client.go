@@ -72,9 +72,9 @@ func (cf *ClientFactory) CreateClient(repoInfo *RepoInfo, githubToken, gitlabTok
 
 // Custom errors
 var (
-	ErrMissingGitHubToken        = &ClientError{Message: "GITHUB_TOKEN environment variable is required for GitHub repositories"}
-	ErrMissingGitLabToken        = &ClientError{Message: "GITLAB_TOKEN environment variable is required for GitLab repositories"}
-	ErrUnsupportedRepositoryType = &ClientError{Message: "unsupported repository type"}
+	ErrMissingGitHubToken        = &ClientError{Message: "GitHub authentication required. Please set the GITHUB_TOKEN environment variable with your personal access token. You can create one at: https://github.com/settings/tokens"}
+	ErrMissingGitLabToken        = &ClientError{Message: "GitLab authentication required. Please set the GITLAB_TOKEN environment variable with your personal access token. You can create one in your GitLab profile settings under 'Access Tokens'"}
+	ErrUnsupportedRepositoryType = &ClientError{Message: "This repository type is not supported. Only GitHub and GitLab repositories are currently supported"}
 )
 
 // ClientError represents a client-related error

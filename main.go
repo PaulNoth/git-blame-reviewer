@@ -25,7 +25,7 @@ func main() {
 	// Get the file path from remaining arguments
 	args := flag.Args()
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "fatal: no file specified\n")
+		fmt.Fprintf(os.Stderr, "Error: Please specify a file to analyze.\nUsage: git-review-blame <file>\n")
 		os.Exit(1)
 	}
 
@@ -37,7 +37,7 @@ func main() {
 
 	// Run the main logic
 	if err := runGitReviewBlame(filePath, *lineNumber, *porcelain, *showEmail, githubToken, gitlabToken); err != nil {
-		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -73,26 +73,26 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	// 1. Find git repository root
 	repoRoot, err := FindGitRoot(filePath)
 	if err != nil {
-		return fmt.Errorf("not in a git repository: %w", err)
+		return fmt.Errorf("this directory is not part of a Git repository. Please run this command from within a Git repository: %w", err)
 	}
 
 	// 2. Extract repository information from git remote
 	repoInfo, err := ExtractRepoInfo(repoRoot)
 	if err != nil {
-		return fmt.Errorf("failed to extract repository info: %w", err)
+		return fmt.Errorf("could not determine if this is a GitHub or GitLab repository. Please ensure you have a valid remote origin configured: %w", err)
 	}
 
 	// 3. Execute git blame on the file
 	blameLines, err := ExecuteGitBlame(repoRoot, filePath, lineRange, porcelain)
 	if err != nil {
-		return fmt.Errorf("git blame failed: %w", err)
+		return fmt.Errorf("could not analyze file history. Please check if the file exists and is tracked by Git: %w", err)
 	}
 
 	// 4. Create appropriate client based on repository type
 	factory := NewClientFactory()
 	client, err := factory.CreateClient(repoInfo, githubToken, gitlabToken)
 	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+		return fmt.Errorf("authentication required: %w", err)
 	}
 
 	// 5. Process each blame line to get PR approval info

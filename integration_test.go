@@ -33,13 +33,13 @@ func TestMainIntegration(t *testing.T) {
 			name:           "no file specified",
 			args:           []string{},
 			expectExitCode: 1,
-			expectError:    "fatal: no file specified",
+			expectError:    "Error: Please specify a file to analyze",
 		},
 		{
 			name:           "no tokens provided",
 			args:           []string{"main.go"},
 			expectExitCode: 1,
-			expectError:    "fatal: failed to extract repository info",
+			expectError:    "Error: could not determine if this is a GitHub or GitLab repository",
 		},
 		{
 			name: "GitHub repo with GitHub token", 
@@ -48,7 +48,7 @@ func TestMainIntegration(t *testing.T) {
 				"GITHUB_TOKEN": "dummy-token",
 			},
 			expectExitCode: 1,
-			expectError:    "fatal: not in a git repository",
+			expectError:    "Error: this directory is not part of a Git repository",
 		},
 		{
 			name: "GitLab repo with GitLab token",
@@ -57,7 +57,7 @@ func TestMainIntegration(t *testing.T) {
 				"GITLAB_TOKEN": "dummy-token",
 			},
 			expectExitCode: 1,
-			expectError:    "fatal: not in a git repository",
+			expectError:    "Error: this directory is not part of a Git repository",
 		},
 	}
 
