@@ -2,7 +2,7 @@
 
 # Build the binary
 build:
-	go build -o git-review-blame .
+	go build -o git-blame-reviewer .
 
 # Run tests
 test:
@@ -19,7 +19,7 @@ lint:
 
 # Clean build artifacts
 clean:
-	rm -f git-review-blame
+	rm -f git-blame-reviewer
 	rm -f coverage.out
 	rm -f coverage.html
 

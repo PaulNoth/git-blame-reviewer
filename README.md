@@ -1,4 +1,4 @@
-# git-review-blame
+# git-blame-reviewer
 
 A Git tool that mimics the behavior of `git blame` but shows GitHub pull request or GitLab merge request approvers for each line of code instead of the original commit authors.
 
@@ -19,40 +19,40 @@ A Git tool that mimics the behavior of `git blame` but shows GitHub pull request
 
 ```bash
 git clone <repository-url>
-cd git-review-blame
+cd git-blame-reviewer
 make build
 ```
 
 ### Binary
 
-The compiled binary will be available as `git-review-blame`.
+The compiled binary will be available as `git-blame-reviewer`.
 
 ## Usage
 
-**git-review-blame uses the exact same command-line interface as git blame:**
+**git-blame-reviewer uses the exact same command-line interface as git blame:**
 
 ### Basic Usage
 
 ```bash
-git-review-blame src/main.go
+git-blame-reviewer src/main.go
 ```
 
 ### With Line Range
 
 ```bash
-git-review-blame -L 10,20 src/main.go
+git-blame-reviewer -L 10,20 src/main.go
 ```
 
 ### Porcelain Format (Machine-Readable)
 
 ```bash
-git-review-blame -porcelain src/main.go
+git-blame-reviewer -porcelain src/main.go
 ```
 
 ### Show Email Addresses
 
 ```bash
-git-review-blame -show-email src/main.go
+git-blame-reviewer -show-email src/main.go
 ```
 
 ### Command Line Options
@@ -86,21 +86,21 @@ You'll need a GitLab personal access token with `read_api` and `read_repository`
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
-git-review-blame src/main.go
+git-blame-reviewer src/main.go
 ```
 
 ### GitLab Repositories
 
 ```bash
 export GITLAB_TOKEN=glpat_xxxxxxxxxxxx
-git-review-blame src/main.go
+git-blame-reviewer src/main.go
 ```
 
 ### Self-hosted GitLab
 
 ```bash
 export GITLAB_TOKEN=glpat_xxxxxxxxxxxx
-git-review-blame src/main.go  # Works automatically with self-hosted instances
+git-blame-reviewer src/main.go  # Works automatically with self-hosted instances
 ```
 
 The tool automatically detects whether your repository is hosted on GitHub or GitLab based on the remote origin URL and uses the appropriate token.
