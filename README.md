@@ -2,6 +2,10 @@
 
 A Git tool that mimics the behavior of `git blame` but shows GitHub pull request or GitLab merge request approvers for each line of code instead of the original commit authors.
 
+> Inspired by [@CubicleApril](https://x.com/CubicleApril/status/1742656227455259066):
+>
+> ![Tweet inspiration](assets/tweet.png)
+
 ## Features
 
 - 🔍 Shows who approved the changes for each line of code
