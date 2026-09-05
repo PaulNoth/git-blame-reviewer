@@ -21,6 +21,9 @@ Always use the `Makefile` targets, not raw `go` commands:
 - `make test-coverage` — generates `coverage.out` + `coverage.html`
 - `make lint` — `golangci-lint run` (install via `make install-tools` if missing)
 - `make check` — runs `test` then `lint`; run this before considering work done
+  (as of this writing `make check` still fails: 17 pre-existing lint findings
+  — `noctx`, `gocyclo`, `gocritic`, `dupl`, `gosec` G204 — are deliberately
+  left unfixed pending a design decision; see git log for details)
 
 To run a single test: `go test -run TestName ./...` (or `-v` for verbose).
 
@@ -32,12 +35,15 @@ To run a single test: `go test -run TestName ./...` (or `-v` for verbose).
 - The compiled binary `git-blame-reviewer` is committed/present in the repo
   root; don't confuse it with source files, and don't rely on it being fresh
   after code changes — rebuild with `make build`.
-- `.golangci.yml` sets `goimports.local-prefixes: git-review-blame`, but the
-  actual Go module name (`go.mod`) and binary name are `git-blame-reviewer`.
-  This is a pre-existing inconsistency, not a typo to "fix" blindly.
 - The tool requires `GITHUB_TOKEN` or `GITLAB_TOKEN` env var at runtime
   (auto-detected from git remote origin); no config file is used.
-- Linter enables many strict checks (`gomnd`, `funlen`, `dupl`, `gocyclo`
+- Linter enables many strict checks (`mnd`, `funlen`, `dupl`, `gocyclo`
   min-complexity 15, `lll` line-length 140) — expect lint failures on
   magic numbers, long functions, or lines >140 chars in non-test files
-  (test files are exempted from `gomnd`/`funlen`/`goconst`).
+  (test files are exempted from `mnd`/`funlen`/`goconst`).
+- `.golangci.yml` uses the golangci-lint **v2** config schema (`version: "2"`).
+  golangci-lint v1.x cannot parse it, and — separately — v1.x releases can
+  fail outright on newer Go toolchains (export data format mismatch reading
+  `go1.2x`-compiled packages). `make install-tools` and the CI workflow's
+  `golangci-lint-action` version are both deliberately pinned to a specific
+  v2.x release rather than `latest`; bump both together, not just one.

@@ -24,8 +24,13 @@ clean:
 	rm -f coverage.html
 
 # Install development tools
+# Pinned (not @latest): golangci-lint v1.x can't read the export data
+# produced by newer Go toolchains, and .golangci.yml uses the v2 config
+# schema, so an unpinned install can silently resolve to an incompatible
+# major version. Bump this deliberately, together with the `version` input
+# in .github/workflows/ci.yml, when upgrading.
 install-tools:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 # Run all checks (test + lint)
 check: test lint

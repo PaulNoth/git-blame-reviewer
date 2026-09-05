@@ -33,9 +33,9 @@ jobs:
       run: make test
     
     - name: Run linter
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v9
       with:
-        version: latest
+        version: v2.13
     
     - name: Build
       run: make build
