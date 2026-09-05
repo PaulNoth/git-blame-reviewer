@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -36,7 +37,8 @@ func main() {
 	gitlabToken := os.Getenv("GITLAB_TOKEN")
 
 	// Run the main logic
-	if err := runGitReviewBlame(filePath, *lineNumber, *porcelain, *showEmail, githubToken, gitlabToken); err != nil {
+	ctx := context.Background()
+	if err := runGitReviewBlame(ctx, filePath, *lineNumber, *porcelain, *showEmail, githubToken, gitlabToken); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -69,7 +71,7 @@ remote origin URL and uses the appropriate token.
 }
 
 // runGitReviewBlame executes the main logic of the application
-func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, githubToken, gitlabToken string) error {
+func runGitReviewBlame(ctx context.Context, filePath, lineRange string, porcelain, showEmail bool, githubToken, gitlabToken string) error {
 	// 1. Find git repository root
 	repoRoot, err := FindGitRoot(filePath)
 	if err != nil {
@@ -77,7 +79,7 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	}
 
 	// 2. Extract repository information from git remote
-	repoInfo, err := ExtractRepoInfo(repoRoot)
+	repoInfo, err := ExtractRepoInfo(ctx, repoRoot)
 	if err != nil {
 		return fmt.Errorf(
 			"could not determine if this is a GitHub or GitLab repository. "+
@@ -85,7 +87,7 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	}
 
 	// 3. Execute git blame on the file
-	blameLines, err := ExecuteGitBlame(repoRoot, filePath, lineRange, porcelain)
+	blameLines, err := ExecuteGitBlame(ctx, repoRoot, filePath, lineRange, porcelain)
 	if err != nil {
 		return fmt.Errorf("could not analyze file history. Please check if the file exists and is tracked by Git: %w", err)
 	}
@@ -98,7 +100,7 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	}
 
 	// 5. Process each blame line to get PR approval info
-	linesWithApprovals := buildBlameLinesWithApprovals(blameLines, client, repoInfo)
+	linesWithApprovals := buildBlameLinesWithApprovals(ctx, blameLines, client, repoInfo)
 
 	// 6. Format and display the output
 	formatter := NewOutputFormatter(showEmail, porcelain, false)
@@ -113,7 +115,9 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 // duplicate API calls. If the client fails to find approval info for a
 // commit, that line simply keeps its original blame author/date, which the
 // formatter later falls back to.
-func buildBlameLinesWithApprovals(blameLines []BlameLine, client ReviewClient, repoInfo *RepoInfo) []BlameLineWithApproval {
+func buildBlameLinesWithApprovals(
+	ctx context.Context, blameLines []BlameLine, client ReviewClient, repoInfo *RepoInfo,
+) []BlameLineWithApproval {
 	var linesWithApprovals []BlameLineWithApproval
 
 	// Cache to avoid duplicate API calls for same commit
@@ -128,7 +132,7 @@ func buildBlameLinesWithApprovals(blameLines []BlameLine, client ReviewClient, r
 		approvalInfo, exists := commitCache[blameLine.CommitHash]
 		if !exists {
 			// Fetch PR approval info from GitHub/GitLab
-			fetched, err := client.GetPRApprovalInfo(repoInfo.Owner, repoInfo.Name, blameLine.CommitHash)
+			fetched, err := client.GetPRApprovalInfo(ctx, repoInfo.Owner, repoInfo.Name, blameLine.CommitHash)
 			if err != nil {
 				// Cache the error (nil) to avoid repeated failures
 				approvalInfo = nil

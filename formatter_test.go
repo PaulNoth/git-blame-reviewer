@@ -96,7 +96,7 @@ func TestFormatHumanWithEmail(t *testing.T) {
 		},
 	}
 
-	formatter := NewOutputFormatter(true, false, true) // ShowEmail = true
+	formatter := NewOutputFormatter(true, false, true) // show email addresses
 	output := formatter.FormatOutput(lines)
 
 	if !strings.Contains(output, "jane@example.com") {
@@ -127,7 +127,7 @@ func TestFormatPorcelain(t *testing.T) {
 		},
 	}
 
-	formatter := NewOutputFormatter(false, true, true) // Porcelain = true
+	formatter := NewOutputFormatter(false, true, true) // use porcelain output format
 	output := formatter.FormatOutput(lines)
 
 	expectedLines := []string{
@@ -195,7 +195,7 @@ func TestGetAuthorName(t *testing.T) {
 		ApproverEmail: "jane@example.com",
 	}
 
-	name := formatter.getAuthorName(lineWithApprover)
+	name := formatter.getAuthorName(&lineWithApprover)
 	if name != "Jane Smith" {
 		t.Errorf("expected 'Jane Smith', got '%s'", name)
 	}
@@ -208,14 +208,14 @@ func TestGetAuthorName(t *testing.T) {
 		},
 	}
 
-	name = formatter.getAuthorName(lineWithoutApprover)
+	name = formatter.getAuthorName(&lineWithoutApprover)
 	if name != "John Doe" {
 		t.Errorf("expected 'John Doe', got '%s'", name)
 	}
 
 	// Test with ShowEmail
 	formatter.ShowEmail = true
-	name = formatter.getAuthorName(lineWithApprover)
+	name = formatter.getAuthorName(&lineWithApprover)
 	if name != "jane@example.com" {
 		t.Errorf("expected 'jane@example.com', got '%s'", name)
 	}
@@ -234,7 +234,7 @@ func TestGetDateString(t *testing.T) {
 		ApprovalTime: &approvalTime,
 	}
 
-	dateStr := formatter.getDateString(lineWithApproval)
+	dateStr := formatter.getDateString(&lineWithApproval)
 	if !strings.Contains(dateStr, "2021-01-03") {
 		t.Errorf("expected formatted approval time, got '%s'", dateStr)
 	}
@@ -246,7 +246,7 @@ func TestGetDateString(t *testing.T) {
 		},
 	}
 
-	dateStr = formatter.getDateString(lineWithoutApproval)
+	dateStr = formatter.getDateString(&lineWithoutApproval)
 	if !strings.Contains(dateStr, "2021-01-01") {
 		t.Errorf("expected formatted commit time, got '%s'", dateStr)
 	}

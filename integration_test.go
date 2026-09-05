@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +18,7 @@ func newIsolatedGitRepoWithoutOrigin(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	initCmd := exec.Command("git", "init")
+	initCmd := exec.CommandContext(context.Background(), "git", "init")
 	initCmd.Dir = dir
 	if err := initCmd.Run(); err != nil {
 		t.Fatalf("Failed to init isolated git repo: %v", err)
@@ -32,7 +33,7 @@ func TestMainIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to resolve binary path: %v", err)
 	}
-	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", binPath, ".")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build binary: %v", err)
 	}
@@ -88,7 +89,10 @@ func TestMainIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command(binPath, tt.args...)
+			// binPath and tt.args are both fixed, compile-time test data
+			// (the freshly built test binary and this file's own table
+			// above), not external/user input.
+			cmd := exec.CommandContext(context.Background(), binPath, tt.args...) //nolint:gosec // G204: test-controlled binary path and args
 			if tt.dir != "" {
 				cmd.Dir = tt.dir
 			}
@@ -142,7 +146,7 @@ func TestMainFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to resolve binary path: %v", err)
 	}
-	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", binPath, ".")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build binary: %v", err)
 	}
@@ -154,7 +158,7 @@ func TestMainFlags(t *testing.T) {
 	// back to original commit info if no PR/MR/approval found"), rather than
 	// aborting the whole command. So this should succeed (exit 0) and still
 	// produce valid blame output built from the original commit metadata.
-	cmd := exec.Command(binPath, "-porcelain", "-show-email", "main.go")
+	cmd := exec.CommandContext(context.Background(), binPath, "-porcelain", "-show-email", "main.go")
 	cmd.Env = append(os.Environ(), "GITHUB_TOKEN=dummy-token")
 
 	output, err := cmd.CombinedOutput()

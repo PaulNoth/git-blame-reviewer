@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,8 +28,8 @@ func NewGitHubClient(token string) *GitHubClient {
 }
 
 // makeRequest makes an authenticated request to the GitHub API
-func (c *GitHubClient) makeRequest(method, url string) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, http.NoBody)
+func (c *GitHubClient) makeRequest(ctx context.Context, method, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -69,10 +70,10 @@ type PRApprovalInfo struct {
 }
 
 // FindPRByCommit finds the pull request that introduced a specific commit
-func (c *GitHubClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error) {
+func (c *GitHubClient) FindPRByCommit(ctx context.Context, owner, repo, commitHash string) (*PullRequest, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s/pulls", c.baseURL, owner, repo, commitHash)
 
-	resp, err := c.makeRequest("GET", url)
+	resp, err := c.makeRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +102,10 @@ func (c *GitHubClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequ
 }
 
 // GetPRApprovals gets all approvals for a specific pull request
-func (c *GitHubClient) GetPRApprovals(owner, repo string, prNumber int) ([]Review, error) {
+func (c *GitHubClient) GetPRApprovals(ctx context.Context, owner, repo string, prNumber int) ([]Review, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/pulls/%d/reviews", c.baseURL, owner, repo, prNumber)
 
-	resp, err := c.makeRequest("GET", url)
+	resp, err := c.makeRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +137,8 @@ func (c *GitHubClient) GetPRApprovals(owner, repo string, prNumber int) ([]Revie
 }
 
 // GetPRApprovalInfo gets complete approval information for a commit
-func (c *GitHubClient) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error) {
-	pr, err := c.FindPRByCommit(owner, repo, commitHash)
+func (c *GitHubClient) GetPRApprovalInfo(ctx context.Context, owner, repo, commitHash string) (*PRApprovalInfo, error) {
+	pr, err := c.FindPRByCommit(ctx, owner, repo, commitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +147,7 @@ func (c *GitHubClient) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApp
 		return nil, fmt.Errorf("no pull request found for commit %s", commitHash)
 	}
 
-	approvals, err := c.GetPRApprovals(owner, repo, pr.Number)
+	approvals, err := c.GetPRApprovals(ctx, owner, repo, pr.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -170,16 +171,16 @@ func NewGitHubClientAdapter(token string) ReviewClient {
 }
 
 // FindPRByCommit implements ReviewClient interface
-func (a *GitHubClientAdapter) FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error) {
-	return a.client.FindPRByCommit(owner, repo, commitHash)
+func (a *GitHubClientAdapter) FindPRByCommit(ctx context.Context, owner, repo, commitHash string) (*PullRequest, error) {
+	return a.client.FindPRByCommit(ctx, owner, repo, commitHash)
 }
 
 // GetPRApprovals implements ReviewClient interface
-func (a *GitHubClientAdapter) GetPRApprovals(owner, repo string, prNumber int) ([]Review, error) {
-	return a.client.GetPRApprovals(owner, repo, prNumber)
+func (a *GitHubClientAdapter) GetPRApprovals(ctx context.Context, owner, repo string, prNumber int) ([]Review, error) {
+	return a.client.GetPRApprovals(ctx, owner, repo, prNumber)
 }
 
 // GetPRApprovalInfo implements ReviewClient interface
-func (a *GitHubClientAdapter) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error) {
-	return a.client.GetPRApprovalInfo(owner, repo, commitHash)
+func (a *GitHubClientAdapter) GetPRApprovalInfo(ctx context.Context, owner, repo, commitHash string) (*PRApprovalInfo, error) {
+	return a.client.GetPRApprovalInfo(ctx, owner, repo, commitHash)
 }

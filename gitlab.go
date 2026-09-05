@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,8 +36,8 @@ func NewGitLabClient(token, host string) ReviewClient {
 }
 
 // makeRequest makes an authenticated request to the GitLab API
-func (c *GitLabClient) makeRequest(method, apiURL string) (*http.Response, error) {
-	req, err := http.NewRequest(method, apiURL, http.NoBody)
+func (c *GitLabClient) makeRequest(ctx context.Context, method, apiURL string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, apiURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +73,12 @@ type GitLabApproval struct {
 }
 
 // FindPRByCommit finds the merge request that introduced a specific commit
-func (c *GitLabClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error) {
+func (c *GitLabClient) FindPRByCommit(ctx context.Context, owner, repo, commitHash string) (*PullRequest, error) {
 	// Encode the project path
 	projectPath := url.PathEscape(fmt.Sprintf("%s/%s", owner, repo))
 	apiURL := fmt.Sprintf("%s/projects/%s/repository/commits/%s/merge_requests", c.baseURL, projectPath, commitHash)
 
-	resp, err := c.makeRequest("GET", apiURL)
+	resp, err := c.makeRequest(ctx, "GET", apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -116,12 +117,12 @@ func (c *GitLabClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequ
 }
 
 // GetPRApprovals gets all approvals for a specific merge request
-func (c *GitLabClient) GetPRApprovals(owner, repo string, prNumber int) ([]Review, error) {
+func (c *GitLabClient) GetPRApprovals(ctx context.Context, owner, repo string, prNumber int) ([]Review, error) {
 	// Encode the project path
 	projectPath := url.PathEscape(fmt.Sprintf("%s/%s", owner, repo))
 	apiURL := fmt.Sprintf("%s/projects/%s/merge_requests/%d/approvals", c.baseURL, projectPath, prNumber)
 
-	resp, err := c.makeRequest("GET", apiURL)
+	resp, err := c.makeRequest(ctx, "GET", apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +162,8 @@ func (c *GitLabClient) GetPRApprovals(owner, repo string, prNumber int) ([]Revie
 }
 
 // GetPRApprovalInfo gets complete approval information for a commit
-func (c *GitLabClient) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error) {
-	pr, err := c.FindPRByCommit(owner, repo, commitHash)
+func (c *GitLabClient) GetPRApprovalInfo(ctx context.Context, owner, repo, commitHash string) (*PRApprovalInfo, error) {
+	pr, err := c.FindPRByCommit(ctx, owner, repo, commitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +172,7 @@ func (c *GitLabClient) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApp
 		return nil, fmt.Errorf("no merge request found for commit %s", commitHash)
 	}
 
-	approvals, err := c.GetPRApprovals(owner, repo, pr.Number)
+	approvals, err := c.GetPRApprovals(ctx, owner, repo, pr.Number)
 	if err != nil {
 		return nil, err
 	}

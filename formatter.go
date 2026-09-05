@@ -47,15 +47,17 @@ func (f *OutputFormatter) formatHuman(lines []BlameLineWithApproval) string {
 	maxAuthorWidth := 0
 	maxLineNumWidth := len(strconv.Itoa(len(lines)))
 
-	for _, line := range lines {
-		authorName := f.getAuthorName(line)
+	for i := range lines {
+		authorName := f.getAuthorName(&lines[i])
 		if len(authorName) > maxAuthorWidth {
 			maxAuthorWidth = len(authorName)
 		}
 	}
 
 	// Format each line
-	for _, line := range lines {
+	for i := range lines {
+		line := &lines[i]
+
 		// Commit hash (shortened to 8 chars)
 		shortHash := line.CommitHash
 		if len(shortHash) > shortHashLength {
@@ -88,7 +90,9 @@ func (f *OutputFormatter) formatHuman(lines []BlameLineWithApproval) string {
 func (f *OutputFormatter) formatPorcelain(lines []BlameLineWithApproval) string {
 	var result strings.Builder
 
-	for _, line := range lines {
+	for i := range lines {
+		line := &lines[i]
+
 		// Commit hash and line info
 		fmt.Fprintf(&result, "%s %d %d 1\n",
 			line.CommitHash,
@@ -126,7 +130,7 @@ func (f *OutputFormatter) formatPorcelain(lines []BlameLineWithApproval) string 
 }
 
 // getAuthorName returns the appropriate author name (approver preferred)
-func (f *OutputFormatter) getAuthorName(line BlameLineWithApproval) string {
+func (f *OutputFormatter) getAuthorName(line *BlameLineWithApproval) string {
 	if line.Approver != "" {
 		if f.ShowEmail && line.ApproverEmail != "" {
 			return line.ApproverEmail
@@ -141,7 +145,7 @@ func (f *OutputFormatter) getAuthorName(line BlameLineWithApproval) string {
 }
 
 // getDateString returns formatted date string (approval time preferred)
-func (f *OutputFormatter) getDateString(line BlameLineWithApproval) string {
+func (f *OutputFormatter) getDateString(line *BlameLineWithApproval) string {
 	if line.ApprovalTime != nil {
 		return line.ApprovalTime.Format("2006-01-02 15:04:05")
 	}

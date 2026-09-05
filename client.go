@@ -1,6 +1,9 @@
 package main
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 const (
 	// reviewStateApproved is the review/approval state value used by both
@@ -22,13 +25,13 @@ const (
 // ReviewClient defines the interface for both GitHub and GitLab API clients
 type ReviewClient interface {
 	// FindPRByCommit finds the pull/merge request that introduced a specific commit
-	FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error)
+	FindPRByCommit(ctx context.Context, owner, repo, commitHash string) (*PullRequest, error)
 
 	// GetPRApprovals gets all approvals for a specific pull/merge request
-	GetPRApprovals(owner, repo string, prNumber int) ([]Review, error)
+	GetPRApprovals(ctx context.Context, owner, repo string, prNumber int) ([]Review, error)
 
 	// GetPRApprovalInfo gets complete approval information for a commit
-	GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error)
+	GetPRApprovalInfo(ctx context.Context, owner, repo, commitHash string) (*PRApprovalInfo, error)
 }
 
 // UnifiedPullRequest represents a PR/MR from either GitHub or GitLab

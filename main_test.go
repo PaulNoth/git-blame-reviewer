@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -16,18 +17,18 @@ type fakeReviewClient struct {
 	approvals map[string]*PRApprovalInfo
 }
 
-func (f *fakeReviewClient) FindPRByCommit(_, _, commitHash string) (*PullRequest, error) {
+func (f *fakeReviewClient) FindPRByCommit(_ context.Context, _, _, commitHash string) (*PullRequest, error) {
 	if info, ok := f.approvals[commitHash]; ok {
 		return &info.PR, nil
 	}
 	return nil, errors.New("no PR found for commit")
 }
 
-func (f *fakeReviewClient) GetPRApprovals(_, _ string, _ int) ([]Review, error) {
+func (f *fakeReviewClient) GetPRApprovals(_ context.Context, _, _ string, _ int) ([]Review, error) {
 	return nil, errors.New("not implemented in fake")
 }
 
-func (f *fakeReviewClient) GetPRApprovalInfo(_, _, commitHash string) (*PRApprovalInfo, error) {
+func (f *fakeReviewClient) GetPRApprovalInfo(_ context.Context, _, _, commitHash string) (*PRApprovalInfo, error) {
 	if info, ok := f.approvals[commitHash]; ok {
 		return info, nil
 	}
@@ -67,7 +68,7 @@ func TestBuildBlameLinesWithApprovals_Success(t *testing.T) {
 
 	repoInfo := &RepoInfo{Owner: "PaulNoth", Name: "git-blame-reviewer", Type: RepositoryTypeGitHub}
 
-	result := buildBlameLinesWithApprovals(blameLines, client, repoInfo)
+	result := buildBlameLinesWithApprovals(context.Background(), blameLines, client, repoInfo)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 result line, got %d", len(result))
@@ -110,7 +111,7 @@ func TestBuildBlameLinesWithApprovals_FallbackOnLookupFailure(t *testing.T) {
 
 	repoInfo := &RepoInfo{Owner: "PaulNoth", Name: "git-blame-reviewer", Type: RepositoryTypeGitHub}
 
-	result := buildBlameLinesWithApprovals(blameLines, client, repoInfo)
+	result := buildBlameLinesWithApprovals(context.Background(), blameLines, client, repoInfo)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 result line, got %d", len(result))
@@ -151,7 +152,7 @@ func TestBuildBlameLinesWithApprovals_CachesPerCommit(t *testing.T) {
 
 	repoInfo := &RepoInfo{Owner: "PaulNoth", Name: "git-blame-reviewer", Type: RepositoryTypeGitHub}
 
-	result := buildBlameLinesWithApprovals(blameLines, client, repoInfo)
+	result := buildBlameLinesWithApprovals(context.Background(), blameLines, client, repoInfo)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 result lines, got %d", len(result))
@@ -173,7 +174,7 @@ type countingReviewClient struct {
 	calls *int
 }
 
-func (c *countingReviewClient) GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error) {
+func (c *countingReviewClient) GetPRApprovalInfo(ctx context.Context, owner, repo, commitHash string) (*PRApprovalInfo, error) {
 	*c.calls++
-	return c.fakeReviewClient.GetPRApprovalInfo(owner, repo, commitHash)
+	return c.fakeReviewClient.GetPRApprovalInfo(ctx, owner, repo, commitHash)
 }

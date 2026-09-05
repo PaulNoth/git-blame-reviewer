@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -56,7 +57,7 @@ func TestMakeRequest(t *testing.T) {
 	defer server.Close()
 
 	client := NewGitHubClient("test-token")
-	resp, err := client.makeRequest("GET", server.URL)
+	resp, err := client.makeRequest(context.Background(), "GET", server.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestFindPRByCommit(t *testing.T) {
 	client := NewGitHubClient("test-token")
 	client.baseURL = server.URL
 
-	pr, err := client.FindPRByCommit("owner", "repo", "abc123")
+	pr, err := client.FindPRByCommit(context.Background(), "owner", "repo", "abc123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,7 +125,7 @@ func TestFindPRByCommitNotFound(t *testing.T) {
 	client := NewGitHubClient("test-token")
 	client.baseURL = server.URL
 
-	pr, err := client.FindPRByCommit("owner", "repo", "abc123")
+	pr, err := client.FindPRByCommit(context.Background(), "owner", "repo", "abc123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -163,7 +164,7 @@ func TestGetPRApprovals(t *testing.T) {
 	client := NewGitHubClient("test-token")
 	client.baseURL = server.URL
 
-	approvals, err := client.GetPRApprovals("owner", "repo", 123)
+	approvals, err := client.GetPRApprovals(context.Background(), "owner", "repo", 123)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -217,7 +218,7 @@ func TestGetPRApprovalInfo(t *testing.T) {
 	client := NewGitHubClient("test-token")
 	client.baseURL = server.URL
 
-	info, err := client.GetPRApprovalInfo("owner", "repo", "abc123")
+	info, err := client.GetPRApprovalInfo(context.Background(), "owner", "repo", "abc123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

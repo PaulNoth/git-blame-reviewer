@@ -21,9 +21,7 @@ Always use the `Makefile` targets, not raw `go` commands:
 - `make test-coverage` — generates `coverage.out` + `coverage.html`
 - `make lint` — `golangci-lint run` (install via `make install-tools` if missing)
 - `make check` — runs `test` then `lint`; run this before considering work done
-  (as of this writing `make check` still fails: 17 pre-existing lint findings
-  — `noctx`, `gocyclo`, `gocritic`, `dupl`, `gosec` G204 — are deliberately
-  left unfixed pending a design decision; see git log for details)
+  (as of this writing `make check` passes cleanly — keep it that way)
 
 To run a single test: `go test -run TestName ./...` (or `-v` for verbose).
 
@@ -40,7 +38,7 @@ To run a single test: `go test -run TestName ./...` (or `-v` for verbose).
 - Linter enables many strict checks (`mnd`, `funlen`, `dupl`, `gocyclo`
   min-complexity 15, `lll` line-length 140) — expect lint failures on
   magic numbers, long functions, or lines >140 chars in non-test files
-  (test files are exempted from `mnd`/`funlen`/`goconst`).
+  (test files are exempted from `mnd`/`funlen`/`goconst`/`gocyclo`).
 - `.golangci.yml` uses the golangci-lint **v2** config schema (`version: "2"`).
   golangci-lint v1.x cannot parse it, and — separately — v1.x releases can
   fail outright on newer Go toolchains (export data format mismatch reading

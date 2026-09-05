@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -279,7 +280,7 @@ func TestExecuteGitBlameIntegration(t *testing.T) {
 	// Test with this very file
 	thisFile := filepath.Join(wd, "git_test.go")
 
-	lines, err := ExecuteGitBlame(repoRoot, thisFile, "", false)
+	lines, err := ExecuteGitBlame(context.Background(), repoRoot, thisFile, "", false)
 	if err != nil {
 		t.Fatalf("ExecuteGitBlame failed: %v", err)
 	}
@@ -499,43 +500,26 @@ func TestParseRepositoryURL(t *testing.T) {
 	}
 }
 
-func TestParseGitHubURL(t *testing.T) {
-	tests := []struct {
-		name        string
-		url         string
-		expectOwner string
-		expectRepo  string
-		expectError bool
-	}{
-		{
-			name:        "GitHub SSH format",
-			url:         "git@github.com:owner/repo.git",
-			expectOwner: "owner",
-			expectRepo:  "repo",
-			expectError: false,
-		},
-		{
-			name:        "GitHub HTTPS format",
-			url:         "https://github.com/owner/repo.git",
-			expectOwner: "owner",
-			expectRepo:  "repo",
-			expectError: false,
-		},
-		{
-			name:        "GitLab URL should error",
-			url:         "https://gitlab.com/owner/repo.git",
-			expectError: true,
-		},
-		{
-			name:        "invalid path format",
-			url:         "git@github.com:justowner",
-			expectError: true,
-		},
-	}
+// ownerRepoParseTestCase is the shared table shape for tests that call a
+// "parse a URL/path into owner+repo" function and check the result.
+type ownerRepoParseTestCase struct {
+	name        string
+	input       string
+	expectOwner string
+	expectRepo  string
+	expectError bool
+}
+
+// runOwnerRepoParseTests runs the shared assertion logic for parse
+// functions with the shape `func(string) (*RepoInfo, error)`, used by both
+// TestParseGitHubURL and TestParseRepoPath since they only differ in which
+// parse function is under test.
+func runOwnerRepoParseTests(t *testing.T, tests []ownerRepoParseTestCase, parse func(string) (*RepoInfo, error)) {
+	t.Helper()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseGitHubURL(tt.url)
+			result, err := parse(tt.input)
 
 			if tt.expectError {
 				if err == nil {
@@ -560,70 +544,71 @@ func TestParseGitHubURL(t *testing.T) {
 	}
 }
 
+func TestParseGitHubURL(t *testing.T) {
+	tests := []ownerRepoParseTestCase{
+		{
+			name:        "GitHub SSH format",
+			input:       "git@github.com:owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "GitHub HTTPS format",
+			input:       "https://github.com/owner/repo.git",
+			expectOwner: "owner",
+			expectRepo:  "repo",
+			expectError: false,
+		},
+		{
+			name:        "GitLab URL should error",
+			input:       "https://gitlab.com/owner/repo.git",
+			expectError: true,
+		},
+		{
+			name:        "invalid path format",
+			input:       "git@github.com:justowner",
+			expectError: true,
+		},
+	}
+
+	runOwnerRepoParseTests(t, tests, parseGitHubURL)
+}
+
 func TestParseRepoPath(t *testing.T) {
-	tests := []struct {
-		name        string
-		path        string
-		expectOwner string
-		expectRepo  string
-		expectError bool
-	}{
+	tests := []ownerRepoParseTestCase{
 		{
 			name:        "basic owner/repo",
-			path:        "owner/repo",
+			input:       "owner/repo",
 			expectOwner: "owner",
 			expectRepo:  "repo",
 			expectError: false,
 		},
 		{
 			name:        "with .git suffix",
-			path:        "owner/repo.git",
+			input:       "owner/repo.git",
 			expectOwner: "owner",
 			expectRepo:  "repo",
 			expectError: false,
 		},
 		{
 			name:        "with additional path segments",
-			path:        "owner/repo/tree/main",
+			input:       "owner/repo/tree/main",
 			expectOwner: "owner",
 			expectRepo:  "repo",
 			expectError: false,
 		},
 		{
 			name:        "missing repo name",
-			path:        "owner",
+			input:       "owner",
 			expectError: true,
 		},
 		{
 			name:        "empty path",
-			path:        "",
+			input:       "",
 			expectError: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseRepoPath(tt.path)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got none")
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if result.Owner != tt.expectOwner {
-				t.Errorf("expected owner %s, got %s", tt.expectOwner, result.Owner)
-			}
-
-			if result.Name != tt.expectRepo {
-				t.Errorf("expected repo %s, got %s", tt.expectRepo, result.Name)
-			}
-		})
-	}
+	runOwnerRepoParseTests(t, tests, parseRepoPath)
 }
