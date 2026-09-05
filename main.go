@@ -13,7 +13,7 @@ func main() {
 		showEmail  = flag.Bool("show-email", false, "Show author email instead of author name")
 		help       = flag.Bool("help", false, "Show help message")
 	)
-	
+
 	// Parse flags first
 	flag.Parse()
 
@@ -79,7 +79,9 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	// 2. Extract repository information from git remote
 	repoInfo, err := ExtractRepoInfo(repoRoot)
 	if err != nil {
-		return fmt.Errorf("could not determine if this is a GitHub or GitLab repository. Please ensure you have a valid remote origin configured: %w", err)
+		return fmt.Errorf(
+			"could not determine if this is a GitHub or GitLab repository. "+
+				"Please ensure you have a valid remote origin configured: %w", err)
 	}
 
 	// 3. Execute git blame on the file
@@ -96,51 +98,7 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	}
 
 	// 5. Process each blame line to get PR approval info
-	var linesWithApprovals []BlameLineWithApproval
-	
-	// Cache to avoid duplicate API calls for same commit
-	commitCache := make(map[string]*PRApprovalInfo)
-	
-	for _, blameLine := range blameLines {
-		lineWithApproval := BlameLineWithApproval{
-			BlameLine: blameLine,
-		}
-		
-		// Check cache first
-		if approvalInfo, exists := commitCache[blameLine.CommitHash]; exists {
-			if approvalInfo != nil {
-				lineWithApproval.PRNumber = approvalInfo.PR.Number
-				if len(approvalInfo.Approvers) > 0 {
-					// Use the most recent approver
-					lastApprover := approvalInfo.Approvers[len(approvalInfo.Approvers)-1]
-					lineWithApproval.Approver = lastApprover.User.Login
-					lineWithApproval.ApproverEmail = lastApprover.User.Email
-					lineWithApproval.ApprovalTime = lastApprover.SubmittedAt
-				}
-			}
-		} else {
-			// Fetch PR approval info from GitHub
-			approvalInfo, err := client.GetPRApprovalInfo(repoInfo.Owner, repoInfo.Name, blameLine.CommitHash)
-			if err != nil {
-				// Cache the error (nil) to avoid repeated failures
-				commitCache[blameLine.CommitHash] = nil
-			} else {
-				// Cache the result
-				commitCache[blameLine.CommitHash] = approvalInfo
-				
-				lineWithApproval.PRNumber = approvalInfo.PR.Number
-				if len(approvalInfo.Approvers) > 0 {
-					// Use the most recent approver
-					lastApprover := approvalInfo.Approvers[len(approvalInfo.Approvers)-1]
-					lineWithApproval.Approver = lastApprover.User.Login
-					lineWithApproval.ApproverEmail = lastApprover.User.Email
-					lineWithApproval.ApprovalTime = lastApprover.SubmittedAt
-				}
-			}
-		}
-		
-		linesWithApprovals = append(linesWithApprovals, lineWithApproval)
-	}
+	linesWithApprovals := buildBlameLinesWithApprovals(blameLines, client, repoInfo)
 
 	// 6. Format and display the output
 	formatter := NewOutputFormatter(showEmail, porcelain, false)
@@ -148,4 +106,51 @@ func runGitReviewBlame(filePath, lineRange string, porcelain, showEmail bool, gi
 	fmt.Print(output)
 
 	return nil
+}
+
+// buildBlameLinesWithApprovals maps each blame line to its PR/MR approval
+// info (if any) by querying client, caching results per-commit to avoid
+// duplicate API calls. If the client fails to find approval info for a
+// commit, that line simply keeps its original blame author/date, which the
+// formatter later falls back to.
+func buildBlameLinesWithApprovals(blameLines []BlameLine, client ReviewClient, repoInfo *RepoInfo) []BlameLineWithApproval {
+	var linesWithApprovals []BlameLineWithApproval
+
+	// Cache to avoid duplicate API calls for same commit
+	commitCache := make(map[string]*PRApprovalInfo)
+
+	for _, blameLine := range blameLines {
+		lineWithApproval := BlameLineWithApproval{
+			BlameLine: blameLine,
+		}
+
+		// Check cache first
+		approvalInfo, exists := commitCache[blameLine.CommitHash]
+		if !exists {
+			// Fetch PR approval info from GitHub/GitLab
+			fetched, err := client.GetPRApprovalInfo(repoInfo.Owner, repoInfo.Name, blameLine.CommitHash)
+			if err != nil {
+				// Cache the error (nil) to avoid repeated failures
+				approvalInfo = nil
+			} else {
+				approvalInfo = fetched
+			}
+			commitCache[blameLine.CommitHash] = approvalInfo
+		}
+
+		if approvalInfo != nil {
+			lineWithApproval.PRNumber = approvalInfo.PR.Number
+			if len(approvalInfo.Approvers) > 0 {
+				// Use the most recent approver
+				lastApprover := approvalInfo.Approvers[len(approvalInfo.Approvers)-1]
+				lineWithApproval.Approver = lastApprover.User.Login
+				lineWithApproval.ApproverEmail = lastApprover.User.Email
+				lineWithApproval.ApprovalTime = lastApprover.SubmittedAt
+			}
+		}
+
+		linesWithApprovals = append(linesWithApprovals, lineWithApproval)
+	}
+
+	return linesWithApprovals
 }

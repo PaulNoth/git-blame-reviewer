@@ -49,7 +49,9 @@ func TestMakeRequest(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -83,7 +85,9 @@ func TestFindPRByCommit(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockPRs)
+		if err := json.NewEncoder(w).Encode(mockPRs); err != nil {
+			t.Errorf("failed to encode mock PRs: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -111,7 +115,9 @@ func TestFindPRByCommit(t *testing.T) {
 func TestFindPRByCommitNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]PullRequest{}) // Empty array
+		if err := json.NewEncoder(w).Encode([]PullRequest{}); err != nil { // Empty array
+			t.Errorf("failed to encode empty PR list: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -148,7 +154,9 @@ func TestGetPRApprovals(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockReviews)
+		if err := json.NewEncoder(w).Encode(mockReviews); err != nil {
+			t.Errorf("failed to encode mock reviews: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -189,12 +197,17 @@ func TestGetPRApprovalInfo(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		
-		if r.URL.Path == "/repos/owner/repo/commits/abc123/pulls" {
-			json.NewEncoder(w).Encode(mockPRs)
-		} else if r.URL.Path == "/repos/owner/repo/pulls/123/reviews" {
-			json.NewEncoder(w).Encode(mockReviews)
-		} else {
+
+		switch r.URL.Path {
+		case "/repos/owner/repo/commits/abc123/pulls":
+			if err := json.NewEncoder(w).Encode(mockPRs); err != nil {
+				t.Errorf("failed to encode mock PRs: %v", err)
+			}
+		case "/repos/owner/repo/pulls/123/reviews":
+			if err := json.NewEncoder(w).Encode(mockReviews); err != nil {
+				t.Errorf("failed to encode mock reviews: %v", err)
+			}
+		default:
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			http.NotFound(w, r)
 		}

@@ -3,22 +3,46 @@ package main
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
+// newIsolatedGitRepoWithoutOrigin creates a fresh git repository with no
+// "origin" remote configured, so that ExtractRepoInfo cannot determine the
+// repository type. Used to test the "could not determine repo type" error
+// path in isolation, regardless of which repository the test suite itself
+// happens to run in.
+func newIsolatedGitRepoWithoutOrigin(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	initCmd := exec.Command("git", "init")
+	initCmd.Dir = dir
+	if err := initCmd.Run(); err != nil {
+		t.Fatalf("Failed to init isolated git repo: %v", err)
+	}
+
+	return dir
+}
+
 func TestMainIntegration(t *testing.T) {
 	// Build the binary first
-	buildCmd := exec.Command("go", "build", "-o", "test-git-review-blame", ".")
+	binPath, err := filepath.Abs("test-git-review-blame")
+	if err != nil {
+		t.Fatalf("Failed to resolve binary path: %v", err)
+	}
+	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build binary: %v", err)
 	}
-	defer os.Remove("test-git-review-blame")
+	defer os.Remove(binPath)
 
 	tests := []struct {
 		name           string
 		args           []string
 		env            map[string]string
+		dir            string
 		expectExitCode int
 		expectOutput   string
 		expectError    string
@@ -36,13 +60,14 @@ func TestMainIntegration(t *testing.T) {
 			expectError:    "Error: Please specify a file to analyze",
 		},
 		{
-			name:           "no tokens provided",
-			args:           []string{"main.go"},
+			name:           "no tokens provided, repo type undetermined",
+			args:           []string{"somefile.go"},
+			dir:            newIsolatedGitRepoWithoutOrigin(t),
 			expectExitCode: 1,
 			expectError:    "Error: could not determine if this is a GitHub or GitLab repository",
 		},
 		{
-			name: "GitHub repo with GitHub token", 
+			name: "GitHub repo with GitHub token",
 			args: []string{"/tmp/nonexistent.go"},
 			env: map[string]string{
 				"GITHUB_TOKEN": "dummy-token",
@@ -52,7 +77,7 @@ func TestMainIntegration(t *testing.T) {
 		},
 		{
 			name: "GitLab repo with GitLab token",
-			args: []string{"/tmp/nonexistent.go"}, 
+			args: []string{"/tmp/nonexistent.go"},
 			env: map[string]string{
 				"GITLAB_TOKEN": "dummy-token",
 			},
@@ -63,8 +88,11 @@ func TestMainIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command("./test-git-review-blame", tt.args...)
-			
+			cmd := exec.Command(binPath, tt.args...)
+			if tt.dir != "" {
+				cmd.Dir = tt.dir
+			}
+
 			// Set environment variables
 			if tt.env != nil {
 				env := os.Environ()
@@ -110,26 +138,40 @@ func TestMainIntegration(t *testing.T) {
 
 func TestMainFlags(t *testing.T) {
 	// Test that flags are parsed correctly
-	buildCmd := exec.Command("go", "build", "-o", "test-git-review-blame", ".")
+	binPath, err := filepath.Abs("test-git-review-blame-flags")
+	if err != nil {
+		t.Fatalf("Failed to resolve binary path: %v", err)
+	}
+	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build binary: %v", err)
 	}
-	defer os.Remove("test-git-review-blame")
+	defer os.Remove(binPath)
 
-	// Test with valid git repository but dummy token (will fail at API stage)
-	cmd := exec.Command("./test-git-review-blame", "-porcelain", "-show-email", "main.go") 
+	// With a valid git repository but an invalid/dummy API token, PR approval
+	// lookups fail per-commit. The tool is designed to gracefully fall back
+	// to the original commit's author/date in that case (see README: "Falls
+	// back to original commit info if no PR/MR/approval found"), rather than
+	// aborting the whole command. So this should succeed (exit 0) and still
+	// produce valid blame output built from the original commit metadata.
+	cmd := exec.Command(binPath, "-porcelain", "-show-email", "main.go")
 	cmd.Env = append(os.Environ(), "GITHUB_TOKEN=dummy-token")
-	
+
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
-	// Should fail but not due to flag parsing
-	if err == nil {
-		t.Error("Expected command to fail (no real API token)")
+	if err != nil {
+		t.Errorf("Expected command to succeed via fallback to original commit info, got error: %v\nOutput:\n%s", err, outputStr)
 	}
 
 	// Should not contain flag parsing errors
 	if strings.Contains(outputStr, "flag provided but not defined") {
 		t.Errorf("Flag parsing failed: %s", outputStr)
+	}
+
+	// Should still produce valid porcelain blame output, falling back to the
+	// original commit author since the dummy token can't authenticate.
+	if !strings.Contains(outputStr, "author Pavol Pidanič") {
+		t.Errorf("Expected fallback blame output with original commit author, got:\n%s", outputStr)
 	}
 }

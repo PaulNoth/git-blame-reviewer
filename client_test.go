@@ -6,7 +6,7 @@ import (
 
 func TestClientFactory(t *testing.T) {
 	factory := NewClientFactory()
-	
+
 	tests := []struct {
 		name         string
 		repoInfo     *RepoInfo
@@ -19,7 +19,7 @@ func TestClientFactory(t *testing.T) {
 			name: "GitHub repository with token",
 			repoInfo: &RepoInfo{
 				Owner: "owner",
-				Name:  "repo", 
+				Name:  "repo",
 				Type:  RepositoryTypeGitHub,
 				Host:  "github.com",
 			},
@@ -100,43 +100,29 @@ func TestClientFactory(t *testing.T) {
 					return
 				}
 
-				// Verify client implements ReviewClient interface
-				_, ok := client.(ReviewClient)
-				if !ok {
-					t.Errorf("client does not implement ReviewClient interface")
-				}
+				// client is already statically typed as ReviewClient by
+				// CreateClient's signature; nothing further to assert here
+				// beyond the non-nil check above.
 			}
 		})
 	}
 }
 
 func TestGitHubClientAdapter(t *testing.T) {
-	// Test that GitHubClientAdapter implements ReviewClient
+	// NewGitHubClientAdapter's return type already guarantees ReviewClient
+	// conformance at compile time; just verify a non-nil client is created.
 	adapter := NewGitHubClientAdapter("test-token")
-	
-	// Verify it implements the interface
-	_, ok := adapter.(ReviewClient)
-	if !ok {
-		t.Error("GitHubClientAdapter does not implement ReviewClient interface")
-	}
-	
-	// Test type assertion
+
 	if adapter == nil {
 		t.Error("expected adapter to be created")
 	}
 }
 
 func TestGitLabClient(t *testing.T) {
-	// Test that GitLabClient implements ReviewClient
+	// NewGitLabClient's return type already guarantees ReviewClient
+	// conformance at compile time; just verify a non-nil client is created.
 	client := NewGitLabClient("test-token", "gitlab.com")
-	
-	// Verify it implements the interface
-	_, ok := client.(ReviewClient)
-	if !ok {
-		t.Error("GitLabClient does not implement ReviewClient interface")
-	}
-	
-	// Test type assertion
+
 	if client == nil {
 		t.Error("expected client to be created")
 	}
@@ -144,7 +130,7 @@ func TestGitLabClient(t *testing.T) {
 
 func TestClientError(t *testing.T) {
 	err := &ClientError{Message: "test error"}
-	
+
 	expected := "test error"
 	if err.Error() != expected {
 		t.Errorf("expected error message %q, got %q", expected, err.Error())
@@ -189,15 +175,15 @@ func TestReviewClientInterface(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test that all interface methods exist and can be called
 			// (We can't test actual functionality without real API calls)
-			
+
 			if tc.client == nil {
 				t.Fatal("client is nil")
 			}
 
 			// Test method signatures exist (will compile if interface is correct)
-			var _ func(string, string, string) (*PullRequest, error) = tc.client.FindPRByCommit
-			var _ func(string, string, int) ([]Review, error) = tc.client.GetPRApprovals  
-			var _ func(string, string, string) (*PRApprovalInfo, error) = tc.client.GetPRApprovalInfo
+			var _ = tc.client.FindPRByCommit
+			var _ = tc.client.GetPRApprovals
+			var _ = tc.client.GetPRApprovalInfo
 		})
 	}
 }

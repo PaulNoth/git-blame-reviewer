@@ -2,32 +2,49 @@ package main
 
 import "time"
 
+const (
+	// reviewStateApproved is the review/approval state value used by both
+	// the GitHub and GitLab APIs to indicate an approving review.
+	reviewStateApproved = "APPROVED"
+
+	// gitlabComHost is the hostname of the public GitLab.com instance, as
+	// opposed to a self-hosted GitLab instance.
+	gitlabComHost = "gitlab.com"
+
+	// githubComHost is the hostname of the public GitHub.com instance.
+	githubComHost = "github.com"
+
+	// defaultHTTPTimeout is the request timeout used by both the GitHub and
+	// GitLab API clients.
+	defaultHTTPTimeout = 30 * time.Second
+)
+
 // ReviewClient defines the interface for both GitHub and GitLab API clients
 type ReviewClient interface {
 	// FindPRByCommit finds the pull/merge request that introduced a specific commit
 	FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error)
-	
+
 	// GetPRApprovals gets all approvals for a specific pull/merge request
 	GetPRApprovals(owner, repo string, prNumber int) ([]Review, error)
-	
+
 	// GetPRApprovalInfo gets complete approval information for a commit
 	GetPRApprovalInfo(owner, repo, commitHash string) (*PRApprovalInfo, error)
 }
 
 // UnifiedPullRequest represents a PR/MR from either GitHub or GitLab
 type UnifiedPullRequest struct {
-	Number   int    `json:"number"`
-	Title    string `json:"title"`
-	State    string `json:"state"`
-	User     User   `json:"user"`
+	Number   int        `json:"number"`
+	Title    string     `json:"title"`
+	State    string     `json:"state"`
+	User     User       `json:"user"`
 	MergedAt *time.Time `json:"merged_at"`
-	WebURL   string `json:"web_url"` // GitLab uses web_url
+	WebURL   string     `json:"web_url"` // GitLab uses web_url
 }
 
 // User represents a user from either GitHub or GitLab
 type User struct {
 	Login string `json:"login"` // GitHub uses "login"
-	Name  string `json:"name"`  // GitLab uses "name" 
+	Name  string `json:"name"`  // GitLab uses "name"
 	Email string `json:"email"`
 }
 
@@ -72,9 +89,17 @@ func (cf *ClientFactory) CreateClient(repoInfo *RepoInfo, githubToken, gitlabTok
 
 // Custom errors
 var (
-	ErrMissingGitHubToken        = &ClientError{Message: "GitHub authentication required. Please set the GITHUB_TOKEN environment variable with your personal access token. You can create one at: https://github.com/settings/tokens"}
-	ErrMissingGitLabToken        = &ClientError{Message: "GitLab authentication required. Please set the GITLAB_TOKEN environment variable with your personal access token. You can create one in your GitLab profile settings under 'Access Tokens'"}
-	ErrUnsupportedRepositoryType = &ClientError{Message: "This repository type is not supported. Only GitHub and GitLab repositories are currently supported"}
+	ErrMissingGitHubToken = &ClientError{
+		Message: "GitHub authentication required. Please set the GITHUB_TOKEN environment variable " +
+			"with your personal access token. You can create one at: https://github.com/settings/tokens",
+	}
+	ErrMissingGitLabToken = &ClientError{
+		Message: "GitLab authentication required. Please set the GITLAB_TOKEN environment variable " +
+			"with your personal access token. You can create one in your GitLab profile settings under 'Access Tokens'",
+	}
+	ErrUnsupportedRepositoryType = &ClientError{
+		Message: "This repository type is not supported. Only GitHub and GitLab repositories are currently supported",
+	}
 )
 
 // ClientError represents a client-related error

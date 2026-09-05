@@ -21,14 +21,14 @@ func NewGitHubClient(token string) *GitHubClient {
 		token:   token,
 		baseURL: "https://api.github.com",
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: defaultHTTPTimeout,
 		},
 	}
 }
 
 // makeRequest makes an authenticated request to the GitHub API
 func (c *GitHubClient) makeRequest(method, url string) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, nil)
+	req, err := http.NewRequest(method, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ type PRApprovalInfo struct {
 // FindPRByCommit finds the pull request that introduced a specific commit
 func (c *GitHubClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequest, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s/pulls", c.baseURL, owner, repo, commitHash)
-	
+
 	resp, err := c.makeRequest("GET", url)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func (c *GitHubClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequ
 // GetPRApprovals gets all approvals for a specific pull request
 func (c *GitHubClient) GetPRApprovals(owner, repo string, prNumber int) ([]Review, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/pulls/%d/reviews", c.baseURL, owner, repo, prNumber)
-	
+
 	resp, err := c.makeRequest("GET", url)
 	if err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func (c *GitHubClient) GetPRApprovals(owner, repo string, prNumber int) ([]Revie
 	// Filter only approved reviews
 	var approvals []Review
 	for _, review := range reviews {
-		if review.State == "APPROVED" {
+		if review.State == reviewStateApproved {
 			approvals = append(approvals, review)
 		}
 	}
@@ -174,7 +174,7 @@ func (a *GitHubClientAdapter) FindPRByCommit(owner, repo, commitHash string) (*P
 	return a.client.FindPRByCommit(owner, repo, commitHash)
 }
 
-// GetPRApprovals implements ReviewClient interface  
+// GetPRApprovals implements ReviewClient interface
 func (a *GitHubClientAdapter) GetPRApprovals(owner, repo string, prNumber int) ([]Review, error) {
 	return a.client.GetPRApprovals(owner, repo, prNumber)
 }

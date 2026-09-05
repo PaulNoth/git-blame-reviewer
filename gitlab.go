@@ -20,23 +20,23 @@ type GitLabClient struct {
 // NewGitLabClient creates a new GitLab API client
 func NewGitLabClient(token, host string) ReviewClient {
 	baseURL := fmt.Sprintf("https://%s/api/v4", host)
-	if host == "gitlab.com" {
+	if host == gitlabComHost {
 		baseURL = "https://gitlab.com/api/v4"
 	}
-	
+
 	return &GitLabClient{
 		token:   token,
 		baseURL: baseURL,
 		host:    host,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: defaultHTTPTimeout,
 		},
 	}
 }
 
 // makeRequest makes an authenticated request to the GitLab API
 func (c *GitLabClient) makeRequest(method, apiURL string) (*http.Response, error) {
-	req, err := http.NewRequest(method, apiURL, nil)
+	req, err := http.NewRequest(method, apiURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +50,12 @@ func (c *GitLabClient) makeRequest(method, apiURL string) (*http.Response, error
 
 // GitLabMergeRequest represents basic MR information from GitLab API
 type GitLabMergeRequest struct {
-	IID       int    `json:"iid"`
-	Title     string `json:"title"`
-	State     string `json:"state"`
-	WebURL    string `json:"web_url"`
-	Author    GitLabUser `json:"author"`
-	MergedAt  *time.Time `json:"merged_at"`
+	IID      int        `json:"iid"`
+	Title    string     `json:"title"`
+	State    string     `json:"state"`
+	WebURL   string     `json:"web_url"`
+	Author   GitLabUser `json:"author"`
+	MergedAt *time.Time `json:"merged_at"`
 }
 
 // GitLabUser represents a GitLab user
@@ -67,7 +67,7 @@ type GitLabUser struct {
 
 // GitLabApproval represents a GitLab MR approval
 type GitLabApproval struct {
-	User GitLabUser `json:"user"`
+	User      GitLabUser `json:"user"`
 	CreatedAt *time.Time `json:"created_at"`
 }
 
@@ -76,7 +76,7 @@ func (c *GitLabClient) FindPRByCommit(owner, repo, commitHash string) (*PullRequ
 	// Encode the project path
 	projectPath := url.PathEscape(fmt.Sprintf("%s/%s", owner, repo))
 	apiURL := fmt.Sprintf("%s/projects/%s/repository/commits/%s/merge_requests", c.baseURL, projectPath, commitHash)
-	
+
 	resp, err := c.makeRequest("GET", apiURL)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (c *GitLabClient) GetPRApprovals(owner, repo string, prNumber int) ([]Revie
 	// Encode the project path
 	projectPath := url.PathEscape(fmt.Sprintf("%s/%s", owner, repo))
 	apiURL := fmt.Sprintf("%s/projects/%s/merge_requests/%d/approvals", c.baseURL, projectPath, prNumber)
-	
+
 	resp, err := c.makeRequest("GET", apiURL)
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func (c *GitLabClient) GetPRApprovals(owner, repo string, prNumber int) ([]Revie
 	var approvalResp struct {
 		ApprovedBy []GitLabApproval `json:"approved_by"`
 	}
-	
+
 	if err := json.Unmarshal(body, &approvalResp); err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *GitLabClient) GetPRApprovals(owner, repo string, prNumber int) ([]Revie
 	var reviews []Review
 	for _, approval := range approvalResp.ApprovedBy {
 		review := Review{
-			State:       "APPROVED",
+			State:       reviewStateApproved,
 			SubmittedAt: approval.CreatedAt,
 		}
 		review.User.Login = approval.User.Username

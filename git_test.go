@@ -26,19 +26,19 @@ func TestFindGitRoot(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "finds git root in parent directory", 
+			name: "finds git root in parent directory",
 			setupFunc: func(t *testing.T) (string, func()) {
 				tempDir := t.TempDir()
 				gitDir := filepath.Join(tempDir, ".git")
 				if err := os.Mkdir(gitDir, 0755); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				subDir := filepath.Join(tempDir, "subdir")
 				if err := os.Mkdir(subDir, 0755); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				return subDir, func() {}
 			},
 			expectError: false,
@@ -51,12 +51,12 @@ func TestFindGitRoot(t *testing.T) {
 				if err := os.Mkdir(gitDir, 0755); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				deepDir := filepath.Join(tempDir, "a", "b", "c")
 				if err := os.MkdirAll(deepDir, 0755); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				return deepDir, func() {}
 			},
 			expectError: false,
@@ -66,7 +66,7 @@ func TestFindGitRoot(t *testing.T) {
 			setupFunc: func(t *testing.T) (string, func()) {
 				tempDir := t.TempDir()
 				gitFile := filepath.Join(tempDir, ".git")
-				if err := os.WriteFile(gitFile, []byte("gitdir: /path/to/git"), 0644); err != nil {
+				if err := os.WriteFile(gitFile, []byte("gitdir: /path/to/git"), 0600); err != nil {
 					t.Fatal(err)
 				}
 				return tempDir, func() {}
@@ -90,12 +90,12 @@ func TestFindGitRoot(t *testing.T) {
 				if err := os.Mkdir(gitDir, 0755); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				testFile := filepath.Join(tempDir, "test.txt")
-				if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+				if err := os.WriteFile(testFile, []byte("test"), 0600); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				return testFile, func() {}
 			},
 			expectError: false,
@@ -194,7 +194,7 @@ author-time 1609632000
 		},
 		{
 			CommitHash:  "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
-			Author:      "Jane Smith", 
+			Author:      "Jane Smith",
 			AuthorEmail: "jane.smith@example.com",
 			Date:        "1609545600",
 			LineNumber:  2,
@@ -278,7 +278,7 @@ func TestExecuteGitBlameIntegration(t *testing.T) {
 
 	// Test with this very file
 	thisFile := filepath.Join(wd, "git_test.go")
-	
+
 	lines, err := ExecuteGitBlame(repoRoot, thisFile, "", false)
 	if err != nil {
 		t.Fatalf("ExecuteGitBlame failed: %v", err)
@@ -306,13 +306,13 @@ func TestExecuteGitBlameIntegration(t *testing.T) {
 
 func TestParseRepositoryURL(t *testing.T) {
 	tests := []struct {
-		name         string
-		url          string
-		expectOwner  string
-		expectRepo   string
-		expectType   RepositoryType
-		expectHost   string
-		expectError  bool
+		name        string
+		url         string
+		expectOwner string
+		expectRepo  string
+		expectType  RepositoryType
+		expectHost  string
+		expectError bool
 	}{
 		// GitHub tests
 		{
@@ -327,7 +327,7 @@ func TestParseRepositoryURL(t *testing.T) {
 		{
 			name:        "GitHub HTTPS format",
 			url:         "https://github.com/owner/repo.git",
-			expectOwner: "owner", 
+			expectOwner: "owner",
 			expectRepo:  "repo",
 			expectType:  RepositoryTypeGitHub,
 			expectHost:  "github.com",
@@ -337,7 +337,7 @@ func TestParseRepositoryURL(t *testing.T) {
 			name:        "GitHub HTTP format",
 			url:         "http://github.com/owner/repo.git",
 			expectOwner: "owner",
-			expectRepo:  "repo", 
+			expectRepo:  "repo",
 			expectType:  RepositoryTypeGitHub,
 			expectHost:  "github.com",
 			expectError: false,
@@ -369,7 +369,7 @@ func TestParseRepositoryURL(t *testing.T) {
 			expectHost:  "github.com",
 			expectError: false,
 		},
-		
+
 		// GitLab.com tests
 		{
 			name:        "GitLab SSH format",
@@ -381,7 +381,7 @@ func TestParseRepositoryURL(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "GitLab HTTPS format", 
+			name:        "GitLab HTTPS format",
 			url:         "https://gitlab.com/owner/repo.git",
 			expectOwner: "owner",
 			expectRepo:  "repo",
@@ -416,13 +416,13 @@ func TestParseRepositoryURL(t *testing.T) {
 			expectHost:  "gitlab.com",
 			expectError: false,
 		},
-		
+
 		// Self-hosted GitLab tests
 		{
 			name:        "Self-hosted GitLab SSH",
 			url:         "git@gitlab.example.com:owner/repo.git",
 			expectOwner: "owner",
-			expectRepo:  "repo", 
+			expectRepo:  "repo",
 			expectType:  RepositoryTypeGitLab,
 			expectHost:  "gitlab.example.com",
 			expectError: false,
@@ -445,7 +445,7 @@ func TestParseRepositoryURL(t *testing.T) {
 			expectHost:  "gitlab.internal.corp",
 			expectError: false,
 		},
-		
+
 		// Error cases
 		{
 			name:        "invalid path format",
@@ -487,11 +487,11 @@ func TestParseRepositoryURL(t *testing.T) {
 			if result.Name != tt.expectRepo {
 				t.Errorf("expected repo %s, got %s", tt.expectRepo, result.Name)
 			}
-			
+
 			if result.Type != tt.expectType {
 				t.Errorf("expected type %s, got %s", tt.expectType, result.Type)
 			}
-			
+
 			if result.Host != tt.expectHost {
 				t.Errorf("expected host %s, got %s", tt.expectHost, result.Host)
 			}
@@ -517,7 +517,7 @@ func TestParseGitHubURL(t *testing.T) {
 		{
 			name:        "GitHub HTTPS format",
 			url:         "https://github.com/owner/repo.git",
-			expectOwner: "owner", 
+			expectOwner: "owner",
 			expectRepo:  "repo",
 			expectError: false,
 		},
