@@ -9,6 +9,31 @@ import (
 	"testing"
 )
 
+// gitBlameFirstLineAuthor returns the author name git blame reports for the
+// first line of the given file in the current repository. Used instead of
+// hardcoding a specific historical author name, since that would only hold
+// in a full local clone: CI's actions/checkout defaults to a shallow clone
+// (fetch-depth: 1), where git blame can only see the single fetched commit
+// and therefore attributes every line to that commit's author instead of
+// the true historical author.
+func gitBlameFirstLineAuthor(t *testing.T, file string) string {
+	t.Helper()
+
+	out, err := exec.CommandContext(context.Background(), "git", "blame", "--porcelain", "-L", "1,1", file).Output()
+	if err != nil {
+		t.Fatalf("failed to run git blame on %s: %v", file, err)
+	}
+
+	for _, line := range strings.Split(string(out), "\n") {
+		if author, ok := strings.CutPrefix(line, "author "); ok {
+			return author
+		}
+	}
+
+	t.Fatalf("could not find an author line in git blame output for %s", file)
+	return ""
+}
+
 // newIsolatedGitRepoWithoutOrigin creates a fresh git repository with no
 // "origin" remote configured, so that ExtractRepoInfo cannot determine the
 // repository type. Used to test the "could not determine repo type" error
@@ -152,6 +177,11 @@ func TestMainFlags(t *testing.T) {
 	}
 	defer os.Remove(binPath)
 
+	// Determine the expected fallback author dynamically from git blame
+	// itself, rather than hardcoding a specific name (see
+	// gitBlameFirstLineAuthor's comment for why).
+	expectedAuthor := gitBlameFirstLineAuthor(t, "main.go")
+
 	// With a valid git repository but an invalid/dummy API token, PR approval
 	// lookups fail per-commit. The tool is designed to gracefully fall back
 	// to the original commit's author/date in that case (see README: "Falls
@@ -175,7 +205,7 @@ func TestMainFlags(t *testing.T) {
 
 	// Should still produce valid porcelain blame output, falling back to the
 	// original commit author since the dummy token can't authenticate.
-	if !strings.Contains(outputStr, "author Pavol Pidanič") {
-		t.Errorf("Expected fallback blame output with original commit author, got:\n%s", outputStr)
+	if !strings.Contains(outputStr, "author "+expectedAuthor) {
+		t.Errorf("Expected fallback blame output with author %q, got:\n%s", expectedAuthor, outputStr)
 	}
 }
