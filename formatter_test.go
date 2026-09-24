@@ -252,6 +252,112 @@ func TestGetDateString(t *testing.T) {
 	}
 }
 
+func TestFormatHumanBlanksBoundaryIdentifier(t *testing.T) {
+	lines := []BlameLineWithApproval{
+		{
+			BlameLine: BlameLine{
+				CommitHash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+				Author:     "John Doe",
+				Date:       "1609459200",
+				LineNumber: 1,
+				Content:    "package main",
+				IsBoundary: true,
+			},
+		},
+	}
+
+	formatter := NewOutputFormatter(false, false, true)
+	formatter.ShowBoundary = true
+	output := formatter.FormatOutput(lines)
+
+	if strings.Contains(output, "a1b2c3d4") {
+		t.Errorf("expected commit hash to be blanked for boundary line, got:\n%s", output)
+	}
+	if !strings.Contains(output, strings.Repeat(" ", shortHashLength)) {
+		t.Errorf("expected %d blank spaces in place of the identifier, got:\n%s", shortHashLength, output)
+	}
+	if !strings.Contains(output, "John Doe") {
+		t.Error("expected author name to still be rendered for boundary line")
+	}
+	if !strings.Contains(output, "package main") {
+		t.Error("expected content to still be rendered for boundary line")
+	}
+}
+
+func TestFormatHumanBoundaryRegression(t *testing.T) {
+	lines := []BlameLineWithApproval{
+		{
+			BlameLine: BlameLine{
+				CommitHash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+				Author:     "John Doe",
+				Date:       "1609459200",
+				LineNumber: 1,
+				Content:    "package main",
+				IsBoundary: true,
+			},
+		},
+		{
+			BlameLine: BlameLine{
+				CommitHash: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+				Author:     "Jane Smith",
+				Date:       "1609545600",
+				LineNumber: 2,
+				Content:    "import \"fmt\"",
+				IsBoundary: false,
+			},
+		},
+	}
+
+	// ShowBoundary=false (default): boundary line's hash must still render,
+	// matching current behavior (no regression).
+	formatter := NewOutputFormatter(false, false, true)
+	output := formatter.FormatOutput(lines)
+
+	if !strings.Contains(output, "a1b2c3d4") {
+		t.Error("expected boundary line's commit hash to render when ShowBoundary=false")
+	}
+	if !strings.Contains(output, "b2c3d4e5") {
+		t.Error("expected non-boundary line's commit hash to render")
+	}
+
+	// ShowBoundary=true: non-boundary line must be unaffected.
+	formatter.ShowBoundary = true
+	output = formatter.FormatOutput(lines)
+
+	if !strings.Contains(output, "b2c3d4e5") {
+		t.Error("expected non-boundary line's commit hash to still render when ShowBoundary=true")
+	}
+}
+
+func TestFormatPorcelainUnaffectedByShowBoundary(t *testing.T) {
+	lines := []BlameLineWithApproval{
+		{
+			BlameLine: BlameLine{
+				CommitHash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+				Author:     "John Doe",
+				Date:       "1609459200",
+				LineNumber: 1,
+				Content:    "package main",
+				IsBoundary: true,
+			},
+		},
+	}
+
+	withoutFlag := NewOutputFormatter(false, true, true)
+	withFlag := NewOutputFormatter(false, true, true)
+	withFlag.ShowBoundary = true
+
+	outWithout := withoutFlag.FormatOutput(lines)
+	outWith := withFlag.FormatOutput(lines)
+
+	if outWithout != outWith {
+		t.Errorf("expected porcelain output to be unaffected by ShowBoundary, got:\nwithout=%q\nwith=%q", outWithout, outWith)
+	}
+	if !strings.Contains(outWith, "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0") {
+		t.Error("expected full commit hash to remain in porcelain output for a boundary line")
+	}
+}
+
 func TestFormatOutputEmpty(t *testing.T) {
 	formatter := NewOutputFormatter(false, false, false)
 	output := formatter.FormatOutput([]BlameLineWithApproval{})

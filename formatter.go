@@ -13,9 +13,10 @@ const shortHashLength = 8
 
 // OutputFormatter handles formatting blame output for display
 type OutputFormatter struct {
-	ShowEmail bool
-	Porcelain bool
-	NoColors  bool
+	ShowEmail    bool
+	Porcelain    bool
+	NoColors     bool
+	ShowBoundary bool
 }
 
 // BlameLineWithApproval combines blame line with PR approval information
@@ -58,10 +59,16 @@ func (f *OutputFormatter) formatHuman(lines []BlameLineWithApproval) string {
 	for i := range lines {
 		line := &lines[i]
 
-		// Commit hash (shortened to 8 chars)
-		shortHash := line.CommitHash
-		if len(shortHash) > shortHashLength {
-			shortHash = shortHash[:shortHashLength]
+		// Commit hash (shortened to 8 chars), blanked for boundary commits
+		// when -b (ShowBoundary) is set, matching `git blame -b`.
+		var shortHash string
+		if f.ShowBoundary && line.IsBoundary {
+			shortHash = strings.Repeat(" ", shortHashLength)
+		} else {
+			shortHash = line.CommitHash
+			if len(shortHash) > shortHashLength {
+				shortHash = shortHash[:shortHashLength]
+			}
 		}
 
 		// Author name (approver if available, otherwise original author)

@@ -12,6 +12,7 @@ func main() {
 		lineNumber = flag.String("L", "", "Annotate only the given line range")
 		porcelain  = flag.Bool("porcelain", false, "Show in a format designed for machine consumption")
 		showEmail  = flag.Bool("show-email", false, "Show author email instead of author name")
+		boundary   = flag.Bool("b", false, "Show blank commit identifier for boundary commits")
 		help       = flag.Bool("help", false, "Show help message")
 	)
 
@@ -38,7 +39,7 @@ func main() {
 
 	// Run the main logic
 	ctx := context.Background()
-	if err := runGitReviewBlame(ctx, filePath, *lineNumber, *porcelain, *showEmail, githubToken, gitlabToken); err != nil {
+	if err := runGitReviewBlame(ctx, filePath, *lineNumber, *porcelain, *showEmail, *boundary, githubToken, gitlabToken); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -52,8 +53,9 @@ Usage:
 
 Options:
   -L <start>,<end>    Show only lines in given range
-  -porcelain          Show in a format designed for machine consumption  
+  -porcelain          Show in a format designed for machine consumption
   -show-email         Show author email instead of author name
+  -b                  Show blank commit identifier for boundary commits
   -help               Show this help message
 
 Environment Variables:
@@ -62,8 +64,9 @@ Environment Variables:
 
 Examples:
   git-review-blame src/main.go
-  git-review-blame -L 10,20 src/main.go  
+  git-review-blame -L 10,20 src/main.go
   git-review-blame -porcelain src/main.go
+  git-review-blame -b src/main.go
 
 Note: The tool automatically detects if the repository is GitHub or GitLab based on the
 remote origin URL and uses the appropriate token.
@@ -71,7 +74,9 @@ remote origin URL and uses the appropriate token.
 }
 
 // runGitReviewBlame executes the main logic of the application
-func runGitReviewBlame(ctx context.Context, filePath, lineRange string, porcelain, showEmail bool, githubToken, gitlabToken string) error {
+func runGitReviewBlame(
+	ctx context.Context, filePath, lineRange string, porcelain, showEmail, boundary bool, githubToken, gitlabToken string,
+) error {
 	// 1. Find git repository root
 	repoRoot, err := FindGitRoot(filePath)
 	if err != nil {
@@ -104,6 +109,7 @@ func runGitReviewBlame(ctx context.Context, filePath, lineRange string, porcelai
 
 	// 6. Format and display the output
 	formatter := NewOutputFormatter(showEmail, porcelain, false)
+	formatter.ShowBoundary = boundary
 	output := formatter.FormatOutput(linesWithApprovals)
 	fmt.Print(output)
 

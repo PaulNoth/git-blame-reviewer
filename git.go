@@ -25,6 +25,7 @@ type BlameLine struct {
 	Date        string
 	LineNumber  int
 	Content     string
+	IsBoundary  bool
 }
 
 // FindGitRoot finds the root directory of a git repository by walking up
@@ -157,6 +158,11 @@ func parseGitBlameOutput(output string) ([]BlameLine, error) {
 		} else if strings.HasPrefix(line, "\t") {
 			// This is the actual code line (starts with tab)
 			currentLine.Content = line[1:] // Remove the leading tab
+		} else if line == "boundary" {
+			// git blame emits a standalone "boundary" line for a commit with
+			// no further ancestry in the blamed history (e.g. the root
+			// commit), regardless of whether -b was passed to git itself.
+			currentLine.IsBoundary = true
 		}
 	}
 

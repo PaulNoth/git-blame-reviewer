@@ -209,3 +209,70 @@ func TestMainFlags(t *testing.T) {
 		t.Errorf("Expected fallback blame output with author %q, got:\n%s", expectedAuthor, outputStr)
 	}
 }
+
+func TestHelpDocumentsBoundaryFlag(t *testing.T) {
+	binPath, err := filepath.Abs("test-git-review-blame-help-b")
+	if err != nil {
+		t.Fatalf("Failed to resolve binary path: %v", err)
+	}
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", binPath, ".")
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove(binPath)
+
+	cmd := exec.CommandContext(context.Background(), binPath, "-help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to run -help: %v\nOutput:\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), "-b ") {
+		t.Errorf("Expected help output to document the -b flag, got:\n%s", output)
+	}
+}
+
+func TestMainBoundaryFlag(t *testing.T) {
+	// go.mod's "go 1.25.1" line traces back to this repository's initial
+	// (root) commit, making it a boundary line for `git blame`.
+	binPath, err := filepath.Abs("test-git-review-blame-boundary")
+	if err != nil {
+		t.Fatalf("Failed to resolve binary path: %v", err)
+	}
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", binPath, ".")
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove(binPath)
+
+	runWithEnv := func(args ...string) string {
+		cmd := exec.CommandContext(context.Background(), binPath, args...)
+		// Set both tokens: whether this checkout's remote resolves to GitHub
+		// or GitLab depends on the local git config's URL rewrites (e.g. SSH
+		// host aliases), which varies across machines/CI.
+		cmd.Env = append(os.Environ(), "GITHUB_TOKEN=dummy-token", "GITLAB_TOKEN=dummy-token")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("command %v failed: %v\nOutput:\n%s", args, err, output)
+		}
+		return string(output)
+	}
+
+	humanNoFlag := runWithEnv("-L", "3,3", "go.mod")
+	humanWithFlag := runWithEnv("-b", "-L", "3,3", "go.mod")
+
+	if humanNoFlag == humanWithFlag {
+		t.Errorf("expected -b to change human-readable output for a boundary line, got identical output:\n%s", humanNoFlag)
+	}
+	identifierField := strings.TrimSpace(strings.SplitN(humanWithFlag, "(", 2)[0])
+	if identifierField != "" {
+		t.Errorf("expected blank identifier column with -b on a boundary line, got %q in:\n%s", identifierField, humanWithFlag)
+	}
+
+	porcelainNoFlag := runWithEnv("-porcelain", "-L", "3,3", "go.mod")
+	porcelainWithFlag := runWithEnv("-b", "-porcelain", "-L", "3,3", "go.mod")
+
+	if porcelainNoFlag != porcelainWithFlag {
+		t.Errorf("expected -b to have no effect on -porcelain output, got:\nwithout=%q\nwith=%q", porcelainNoFlag, porcelainWithFlag)
+	}
+}

@@ -59,11 +59,22 @@ git-blame-reviewer -porcelain src/main.go
 git-blame-reviewer -show-email src/main.go
 ```
 
+### Blank Boundary Commit Identifiers
+
+```bash
+git-blame-reviewer -b src/main.go
+```
+
+Blanks the commit identifier column, in human-readable output only, for lines
+attributed to a boundary commit (e.g. the repository's root commit) — same as
+`git blame -b`. Has no effect on `-porcelain` output.
+
 ### Command Line Options
 
 - `-L <start>,<end>` - Show only lines in given range (same as git blame)
 - `-porcelain` - Show in a format designed for machine consumption
 - `-show-email` - Show author email instead of author name  
+- `-b` - Show blank commit identifier for boundary commits (human-readable output only)
 - `-help` - Show help message
 
 **Note:** The file path is provided as a positional argument, just like `git blame`.

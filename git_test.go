@@ -242,6 +242,47 @@ author-time 1609632000
 	}
 }
 
+func TestParseGitBlameOutputBoundary(t *testing.T) {
+	// Sample porcelain output where the second commit block is a boundary
+	// commit (git blame emits a standalone "boundary" line for it), and the
+	// first and third are not.
+	sampleOutput := `a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 1 1 1
+author John Doe
+author-mail <john.doe@example.com>
+author-time 1609459200
+	package main
+b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1 2 2 1
+author Jane Smith
+author-mail <jane.smith@example.com>
+author-time 1609545600
+boundary
+	root line
+c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2 3 3 1
+author Bob Wilson
+author-mail <bob.wilson@example.com>
+author-time 1609632000
+	import "fmt"`
+
+	result, err := parseGitBlameOutput(sampleOutput)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(result))
+	}
+
+	if result[0].IsBoundary {
+		t.Errorf("line 1: expected IsBoundary=false, got true")
+	}
+	if !result[1].IsBoundary {
+		t.Errorf("line 2: expected IsBoundary=true (boundary commit), got false")
+	}
+	if result[2].IsBoundary {
+		t.Errorf("line 3: expected IsBoundary=false, got true")
+	}
+}
+
 func TestIsHexString(t *testing.T) {
 	tests := []struct {
 		input    string
