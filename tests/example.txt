@@ -1,2 +1,0 @@
-This is a contribution from different user.
-I will use it as an asset for e2e/integration tests.
